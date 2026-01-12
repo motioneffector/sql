@@ -35,8 +35,8 @@ describe('SqlError Properties', () => {
     }
 
     try {
-      db.run('INSERT INTO users (id, email) VALUES (1, "test@example.com")')
-      db.run('INSERT INTO users (id, email) VALUES (1, "other@example.com")')
+      db.run("INSERT INTO users (id, email) VALUES (1, 'test@example.com')")
+      db.run("INSERT INTO users (id, email) VALUES (1, 'other@example.com')")
       expect.fail('Should have thrown')
     } catch (error) {
       expect(error).toBeInstanceOf(SqlError)
@@ -45,8 +45,8 @@ describe('SqlError Properties', () => {
 
   it('error.code contains SQLite error code string', () => {
     try {
-      db.run('INSERT INTO users (id, email) VALUES (1, "test@example.com")')
-      db.run('INSERT INTO users (id, email) VALUES (1, "other@example.com")')
+      db.run("INSERT INTO users (id, email) VALUES (1, 'test@example.com')")
+      db.run("INSERT INTO users (id, email) VALUES (1, 'other@example.com')")
       expect.fail('Should have thrown')
     } catch (error) {
       expect((error as SqlError).code).toBeDefined()
@@ -173,9 +173,9 @@ describe('SqlConstraintError', () => {
   })
 
   it('thrown for UNIQUE constraint violation', () => {
-    db.run('INSERT INTO users (id, email) VALUES (1, "test@example.com")')
+    db.run("INSERT INTO users (id, email) VALUES (1, 'test@example.com')")
     try {
-      db.run('INSERT INTO users (id, email) VALUES (2, "test@example.com")')
+      db.run("INSERT INTO users (id, email) VALUES (2, 'test@example.com')")
       expect.fail('Should have thrown')
     } catch (error) {
       expect(error).toBeInstanceOf(SqlConstraintError)
@@ -183,9 +183,9 @@ describe('SqlConstraintError', () => {
   })
 
   it('thrown for PRIMARY KEY constraint violation', () => {
-    db.run('INSERT INTO users (id, email) VALUES (1, "test1@example.com")')
+    db.run("INSERT INTO users (id, email) VALUES (1, 'test1@example.com')")
     try {
-      db.run('INSERT INTO users (id, email) VALUES (1, "test2@example.com")')
+      db.run("INSERT INTO users (id, email) VALUES (1, 'test2@example.com')")
       expect.fail('Should have thrown')
     } catch (error) {
       expect(error).toBeInstanceOf(SqlConstraintError)
@@ -194,7 +194,7 @@ describe('SqlConstraintError', () => {
 
   it('thrown for FOREIGN KEY constraint violation', () => {
     try {
-      db.run('INSERT INTO posts (user_id, title) VALUES (999, "Test")')
+      db.run("INSERT INTO posts (user_id, title) VALUES (999, 'Test')")
       expect.fail('Should have thrown')
     } catch (error) {
       expect(error).toBeInstanceOf(SqlConstraintError)
@@ -212,7 +212,7 @@ describe('SqlConstraintError', () => {
 
   it('thrown for CHECK constraint violation', () => {
     try {
-      db.run('INSERT INTO users (id, email, age) VALUES (1, "test@example.com", -5)')
+      db.run("INSERT INTO users (id, email, age) VALUES (1, 'test@example.com', -5)")
       expect.fail('Should have thrown')
     } catch (error) {
       expect(error).toBeInstanceOf(SqlConstraintError)
@@ -220,9 +220,9 @@ describe('SqlConstraintError', () => {
   })
 
   it("error.code is 'SQLITE_CONSTRAINT' or more specific subcode", () => {
-    db.run('INSERT INTO users (id, email) VALUES (1, "test@example.com")')
+    db.run("INSERT INTO users (id, email) VALUES (1, 'test@example.com')")
     try {
-      db.run('INSERT INTO users (id, email) VALUES (2, "test@example.com")')
+      db.run("INSERT INTO users (id, email) VALUES (2, 'test@example.com')")
       expect.fail('Should have thrown')
     } catch (error) {
       const sqlError = error as SqlConstraintError

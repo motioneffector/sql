@@ -216,13 +216,37 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
   // Extract named parameter names from SQL (without prefixes)
   const extractNamedParameters = (sql: string): Set<string> => {
     const names = new Set<string>()
-    // Match :name, $name, @name patterns
-    const regex = /[:$@]([a-zA-Z_][a-zA-Z0-9_]*)/g
-    let match
+    let inString = false
+    let stringChar = ''
 
-    while ((match = regex.exec(sql)) !== null) {
-      if (match[1]) {
-        names.add(match[1]) // Add name without prefix
+    for (let i = 0; i < sql.length; i++) {
+      const char = sql[i]
+
+      if (inString) {
+        if (char === stringChar && sql[i - 1] !== '\\') {
+          inString = false
+        }
+        continue
+      }
+
+      if (char === "'" || char === '"') {
+        inString = true
+        stringChar = char
+        continue
+      }
+
+      // Check for named parameters: :name, $name, @name
+      if (char === ':' || char === '$' || char === '@') {
+        let paramName = ''
+        let j = i + 1
+        // Extract parameter name (alphanumeric and underscore)
+        while (j < sql.length && /[a-zA-Z0-9_]/.test(sql[j] ?? '')) {
+          paramName += sql[j]
+          j++
+        }
+        if (paramName.length > 0) {
+          names.add(paramName)
+        }
       }
     }
 
@@ -300,28 +324,75 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
   const handleSqlError = (error: unknown, sql?: string, params?: unknown[]): never => {
     const message = (error as Error).message || String(error)
 
-    if (message.includes('syntax') || message.includes('parse')) {
-      const err = new SqlSyntaxError(message)
+    // Extract SQLite error code if present (format: "SQLITE_XXX: message")
+    const codeMatch = message.match(/^(SQLITE_\w+)/)
+    const code = codeMatch ? codeMatch[1] : 'SQLITE_ERROR'
+
+    // Check for syntax errors
+    if (
+      code === 'SQLITE_ERROR' &&
+      (message.includes('syntax error') ||
+       message.includes('unrecognized token') ||
+       message.includes('incomplete') ||
+       message.includes('near ') ||
+       message.includes('parse') ||
+       message.includes('unexpected'))
+    ) {
+      const err = new SqlSyntaxError(message, code)
       if (sql !== undefined) err.sql = sql
       if (params !== undefined) err.params = params
       throw err
     }
 
-    if (message.includes('constraint') || message.includes('UNIQUE') || message.includes('NOT NULL')) {
-      const err = new SqlConstraintError(message)
+    // Check for constraint errors
+    if (
+      code.includes('CONSTRAINT') ||
+      message.includes('CONSTRAINT') ||
+      message.includes('UNIQUE constraint') ||
+      message.includes('NOT NULL constraint') ||
+      message.includes('FOREIGN KEY constraint') ||
+      message.includes('CHECK constraint') ||
+      message.includes('PRIMARY KEY') ||
+      message.includes('must be unique')
+    ) {
+      // SQL.js often returns SQLITE_ERROR for constraint violations
+      // Set more specific code based on error message
+      let specificCode = code
+      if (code === 'SQLITE_ERROR') {
+        if (message.includes('UNIQUE constraint')) {
+          specificCode = 'SQLITE_CONSTRAINT_UNIQUE'
+        } else if (message.includes('NOT NULL constraint')) {
+          specificCode = 'SQLITE_CONSTRAINT_NOTNULL'
+        } else if (message.includes('FOREIGN KEY constraint')) {
+          specificCode = 'SQLITE_CONSTRAINT_FOREIGNKEY'
+        } else if (message.includes('CHECK constraint')) {
+          specificCode = 'SQLITE_CONSTRAINT_CHECK'
+        } else if (message.includes('PRIMARY KEY')) {
+          specificCode = 'SQLITE_CONSTRAINT_PRIMARYKEY'
+        } else {
+          specificCode = 'SQLITE_CONSTRAINT'
+        }
+      }
+      const err = new SqlConstraintError(message, specificCode)
       if (sql !== undefined) err.sql = sql
       if (params !== undefined) err.params = params
       throw err
     }
 
-    if (message.includes('no such table') || message.includes('no such column')) {
-      const err = new SqlNotFoundError(message)
+    // Check for not found errors
+    if (
+      message.includes('no such table') ||
+      message.includes('no such column') ||
+      message.includes('not found')
+    ) {
+      const err = new SqlNotFoundError(message, code)
       if (sql !== undefined) err.sql = sql
       if (params !== undefined) err.params = params
       throw err
     }
 
-    const err = new SqlError(message)
+    // Generic SQL error
+    const err = new SqlError(message, code)
     if (sql !== undefined) err.sql = sql
     if (params !== undefined) err.params = params
     throw err
@@ -329,23 +400,35 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
   // Database implementation
   const database: Database = {
-    run(sql: string, params?: ParamArray | ParamObject): RunResult {
+    run(sql: string | SqlTemplate, params?: ParamArray | ParamObject): RunResult {
       ensureOpen()
+
+      // Support SqlTemplate objects
+      let actualSql: string
+      let actualParams: ParamArray | ParamObject | undefined
+      if (typeof sql === 'object' && sql !== null && 'sql' in sql && 'params' in sql) {
+        actualSql = sql.sql
+        actualParams = sql.params
+      } else {
+        actualSql = sql as string
+        actualParams = params
+      }
+
       try {
         // Validate parameters match SQL placeholders
-        validateParams(sql, params)
+        validateParams(actualSql, actualParams)
 
-        const convertedParams = convertParams(params)
+        const convertedParams = convertParams(actualParams)
 
         if (convertedParams) {
           // Use prepared statement for parameterized queries
-          const stmt = db.prepare(sql)
+          const stmt = db.prepare(actualSql)
           stmt.bind(convertedParams as never)
           stmt.step()
           stmt.free()
         } else {
           // No parameters, use direct execution
-          db.run(sql)
+          db.run(actualSql)
         }
 
         const changes = db.getRowsModified()
@@ -354,7 +437,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         let lastInsertRowId = 0
 
         // Only get lastInsertRowId if we actually had changes (INSERT happened)
-        if (changes > 0 && (sql.trim().toUpperCase().startsWith('INSERT'))) {
+        if (changes > 0 && (actualSql.trim().toUpperCase().startsWith('INSERT'))) {
           try {
             const result = db.exec('SELECT last_insert_rowid() as id')
             if (result[0]?.values[0]?.[0]) {
@@ -375,19 +458,31 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         if (error instanceof TypeError) {
           throw error
         }
-        return handleSqlError(error, sql, params as unknown[])
+        return handleSqlError(error, actualSql, actualParams as unknown[])
       }
     },
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-    get<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, params?: ParamArray | ParamObject): T | undefined {
+    get<T extends Record<string, unknown> = Record<string, unknown>>(sql: string | SqlTemplate, params?: ParamArray | ParamObject): T | undefined {
       ensureOpen()
+
+      // Support SqlTemplate objects
+      let actualSql: string
+      let actualParams: ParamArray | ParamObject | undefined
+      if (typeof sql === 'object' && sql !== null && 'sql' in sql && 'params' in sql) {
+        actualSql = sql.sql
+        actualParams = sql.params
+      } else {
+        actualSql = sql as string
+        actualParams = params
+      }
+
       try {
         // Validate parameters match SQL placeholders
-        validateParams(sql, params)
+        validateParams(actualSql, actualParams)
 
-        const stmt = db.prepare(sql)
-        const convertedParams = convertParams(params)
+        const stmt = db.prepare(actualSql)
+        const convertedParams = convertParams(actualParams)
         if (convertedParams) {
           stmt.bind(convertedParams as never)
         }
@@ -402,18 +497,30 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         if (error instanceof TypeError) {
           throw error
         }
-        return handleSqlError(error, sql, params as unknown[])
+        return handleSqlError(error, actualSql, actualParams as unknown[])
       }
     },
 
-    all<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, params?: ParamArray | ParamObject): T[] {
+    all<T extends Record<string, unknown> = Record<string, unknown>>(sql: string | SqlTemplate, params?: ParamArray | ParamObject): T[] {
       ensureOpen()
+
+      // Support SqlTemplate objects
+      let actualSql: string
+      let actualParams: ParamArray | ParamObject | undefined
+      if (typeof sql === 'object' && sql !== null && 'sql' in sql && 'params' in sql) {
+        actualSql = sql.sql
+        actualParams = sql.params
+      } else {
+        actualSql = sql as string
+        actualParams = params
+      }
+
       try {
         // Validate parameters match SQL placeholders
-        validateParams(sql, params)
+        validateParams(actualSql, actualParams)
 
-        const stmt = db.prepare(sql)
-        const convertedParams = convertParams(params)
+        const stmt = db.prepare(actualSql)
+        const convertedParams = convertParams(actualParams)
         if (convertedParams) {
           stmt.bind(convertedParams as never)
         }
@@ -427,7 +534,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         if (error instanceof TypeError) {
           throw error
         }
-        return handleSqlError(error, sql, params as unknown[])
+        return handleSqlError(error, actualSql, actualParams as unknown[])
       }
     },
 
@@ -753,10 +860,26 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       ensureOpen()
       try {
         const uint8Data = data instanceof ArrayBuffer ? new Uint8Array(data) : data
+
+        // Validate SQLite format: files must start with "SQLite format 3\0"
+        const sqliteHeader = 'SQLite format 3\0'
+        if (uint8Data.length < 16) {
+          throw new SqlError('Invalid SQLite file: file too small')
+        }
+
+        for (let i = 0; i < sqliteHeader.length; i++) {
+          if (uint8Data[i] !== sqliteHeader.charCodeAt(i)) {
+            throw new SqlError('Invalid SQLite file: not a valid SQLite database format')
+          }
+        }
+
         db.close()
         db = new SQL.Database(uint8Data)
         scheduleSave()
       } catch (error) {
+        if (error instanceof SqlError) {
+          throw error
+        }
         throw new SqlError(`Failed to import database: ${(error as Error).message}`)
       }
     },
@@ -791,6 +914,17 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
     getTableInfo(tableName: string): ColumnInfo[] {
       ensureOpen()
+
+      // Check if table exists
+      const tableExists = database.get<{ count: number }>(
+        "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=?",
+        [tableName]
+      )
+
+      if (!tableExists || tableExists.count === 0) {
+        throw new SqlNotFoundError(`Table "${tableName}" not found`)
+      }
+
       try {
         const info = database.all<{
           name: string
@@ -806,15 +940,66 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           defaultValue: col.dflt_value,
           primaryKey: col.pk === 1,
         }))
-      } catch {
+      } catch (error) {
         throw new SqlNotFoundError(`Table "${tableName}" not found`)
       }
     },
 
-    getIndexes(_tableName?: string): IndexInfo[] {
+    getIndexes(tableName?: string): IndexInfo[] {
       ensureOpen()
-      // Simplified implementation
-      return []
+
+      try {
+        // Query sqlite_master for indexes
+        const sql = tableName
+          ? `SELECT name, tbl_name, sql
+             FROM sqlite_master
+             WHERE type = 'index'
+             AND tbl_name = ?
+             AND name NOT LIKE 'sqlite_autoindex_%'`
+          : `SELECT name, tbl_name, sql
+             FROM sqlite_master
+             WHERE type = 'index'
+             AND name NOT LIKE 'sqlite_autoindex_%'`
+
+        const params = tableName ? [tableName] : undefined
+        const rows = database.all<{ name: string; tbl_name: string; sql: string | null }>(sql, params)
+
+        return rows.map(row => {
+          // Parse if index is UNIQUE from the CREATE INDEX statement
+          const unique = row.sql ? row.sql.includes('UNIQUE INDEX') : false
+
+          // Get columns using PRAGMA index_info
+          const columns: string[] = []
+          try {
+            const info = db.exec(`PRAGMA index_info("${row.name}")`)
+            if (info[0]?.values) {
+              for (const value of info[0].values) {
+                const colName = value[2] as string // Column name is at index 2
+                if (colName) {
+                  columns.push(colName)
+                }
+              }
+            }
+          } catch {
+            // If PRAGMA fails, try to parse from SQL
+            if (row.sql) {
+              const match = row.sql.match(/\((.*?)\)/)
+              if (match && match[1]) {
+                columns.push(...match[1].split(',').map(c => c.trim()))
+              }
+            }
+          }
+
+          return {
+            name: row.name,
+            table: row.tbl_name,
+            unique,
+            columns,
+          }
+        })
+      } catch (error) {
+        return handleSqlError(error)
+      }
     },
 
     close(): void {
@@ -824,9 +1009,11 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         clearTimeout(autoSaveTimer)
       }
 
-      // Synchronous save before closing
-      // Note: This would need to be async in real implementation
-      // For now, we'll skip the final save in close()
+      // Trigger final save if persistence is configured
+      if (options?.persist) {
+        // Fire and forget - save happens asynchronously
+        void saveToStorage()
+      }
 
       db.close()
       closed = true
@@ -843,6 +1030,12 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       const tables = database.getTables()
       for (const table of tables) {
         database.exec(`DELETE FROM ${table}`)
+      }
+      // Reset AUTOINCREMENT counters (only if table exists)
+      try {
+        database.exec('DELETE FROM sqlite_sequence')
+      } catch {
+        // sqlite_sequence doesn't exist if no AUTOINCREMENT columns have been used
       }
       scheduleSave()
     },
@@ -864,7 +1057,14 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
     prepare<T>(sql: string): PreparedStatement<T> {
       ensureOpen()
-      const stmt = db.prepare(sql)
+
+      let stmt: SqlJs.Statement
+      try {
+        stmt = db.prepare(sql)
+      } catch (error) {
+        return handleSqlError(error, sql)
+      }
+
       let finalized = false
 
       const ensureNotFinalized = (): void => {
@@ -876,44 +1076,56 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       return {
         run(params?: ParamArray | ParamObject): RunResult {
           ensureNotFinalized()
-          const convertedParams = convertParams(params)
-          if (convertedParams) {
-            stmt.bind(convertedParams as never)
+          try {
+            const convertedParams = convertParams(params)
+            if (convertedParams) {
+              stmt.bind(convertedParams as never)
+            }
+            stmt.step()
+            stmt.reset()
+            const changes = db.getRowsModified()
+            const lastInsertRowId = db.exec('SELECT last_insert_rowid() as id')[0]?.values[0]?.[0] as number || 0
+            return { changes, lastInsertRowId }
+          } catch (error) {
+            return handleSqlError(error, sql, params as unknown[])
           }
-          stmt.step()
-          stmt.reset()
-          const changes = db.getRowsModified()
-          const lastInsertRowId = db.exec('SELECT last_insert_rowid() as id')[0]?.values[0]?.[0] as number || 0
-          return { changes, lastInsertRowId }
         },
 
         get(params?: ParamArray | ParamObject): T | undefined {
           ensureNotFinalized()
-          const convertedParams = convertParams(params)
-          if (convertedParams) {
-            stmt.bind(convertedParams as never)
-          }
-          if (stmt.step()) {
-            const row = stmt.getAsObject() as T
+          try {
+            const convertedParams = convertParams(params)
+            if (convertedParams) {
+              stmt.bind(convertedParams as never)
+            }
+            if (stmt.step()) {
+              const row = stmt.getAsObject() as T
+              stmt.reset()
+              return row
+            }
             stmt.reset()
-            return row
+            return undefined
+          } catch (error) {
+            return handleSqlError(error, sql, params as unknown[])
           }
-          stmt.reset()
-          return undefined
         },
 
         all(params?: ParamArray | ParamObject): T[] {
           ensureNotFinalized()
-          const convertedParams = convertParams(params)
-          if (convertedParams) {
-            stmt.bind(convertedParams as never)
+          try {
+            const convertedParams = convertParams(params)
+            if (convertedParams) {
+              stmt.bind(convertedParams as never)
+            }
+            const results: T[] = []
+            while (stmt.step()) {
+              results.push(stmt.getAsObject() as T)
+            }
+            stmt.reset()
+            return results
+          } catch (error) {
+            return handleSqlError(error, sql, params as unknown[])
           }
-          const results: T[] = []
-          while (stmt.step()) {
-            results.push(stmt.getAsObject() as T)
-          }
-          stmt.reset()
-          return results
         },
 
         finalize(): void {
@@ -938,22 +1150,38 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         return []
       }
       const firstRowKeys = Object.keys(firstRow)
+
+      // Check if any row has keys that aren't in the first row
       for (const row of rows) {
         const keys = Object.keys(row)
-        if (keys.length !== firstRowKeys.length || !keys.every(k => firstRowKeys.includes(k))) {
-          throw new Error('All rows must have the same columns')
+        for (const key of keys) {
+          if (!firstRowKeys.includes(key)) {
+            throw new Error('All rows must have the same columns')
+          }
         }
       }
 
       const ids: number[] = []
 
-      void database.transaction(() => {
+      // Use manual transaction for synchronous operation
+      try {
+        database.exec('BEGIN TRANSACTION')
         for (const row of rows) {
+          // Fill in missing keys with undefined (will be inserted as NULL)
+          const normalizedRow: Record<string, unknown> = {}
+          for (const key of firstRowKeys) {
+            normalizedRow[key] = row[key]
+          }
+
           const table = database.table(tableName)
-          const id = table.insert(row)
+          const id = table.insert(normalizedRow)
           ids.push(id)
         }
-      })
+        database.exec('COMMIT')
+      } catch (error) {
+        database.exec('ROLLBACK')
+        throw error
+      }
 
       return ids
     },

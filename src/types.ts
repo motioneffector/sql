@@ -7,10 +7,10 @@
  */
 export interface Database {
   // Query methods
-  run(sql: string, params?: ParamArray | ParamObject): RunResult
+  run(sql: string | SqlTemplate, params?: ParamArray | ParamObject): RunResult
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-  get<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, params?: ParamArray | ParamObject): T | undefined
-  all<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, params?: ParamArray | ParamObject): T[]
+  get<T extends Record<string, unknown> = Record<string, unknown>>(sql: string | SqlTemplate, params?: ParamArray | ParamObject): T | undefined
+  all<T extends Record<string, unknown> = Record<string, unknown>>(sql: string | SqlTemplate, params?: ParamArray | ParamObject): T[]
   exec(sql: string): void
 
   // Migrations

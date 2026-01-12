@@ -210,11 +210,11 @@ describe('db.import(data)', () => {
     expect(() => db.import(invalidData)).toThrow(SqlError)
   })
 
-  it('throws SqlError if data is corrupted', () => {
+  it('throws SqlError if data is corrupted', async () => {
     // Create valid database and corrupt it
-    const sourceDb = createDatabase()
-    const data = (sourceDb as Database).export()
-    ;(sourceDb as Database).close()
+    const sourceDb = await createDatabase()
+    const data = sourceDb.export()
+    sourceDb.close()
 
     // Corrupt the data
     data[10] = 255
