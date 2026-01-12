@@ -8,8 +8,9 @@
 export interface Database {
   // Query methods
   run(sql: string, params?: ParamArray | ParamObject): RunResult
-  get<T = any>(sql: string, params?: ParamArray | ParamObject): T | undefined
-  all<T = any>(sql: string, params?: ParamArray | ParamObject): T[]
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+  get<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, params?: ParamArray | ParamObject): T | undefined
+  all<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, params?: ParamArray | ParamObject): T[]
   exec(sql: string): void
 
   // Migrations
@@ -22,7 +23,7 @@ export interface Database {
   readonly inTransaction: boolean
 
   // Table helper
-  table<T = any>(tableName: string, options?: TableOptions): TableHelper<T>
+  table<T extends Record<string, unknown>>(tableName: string, options?: TableOptions): TableHelper<T>
 
   // Export/Import
   export(): Uint8Array
@@ -44,13 +45,13 @@ export interface Database {
   destroy(): Promise<void>
 
   // Query building
-  sql(strings: TemplateStringsArray, ...values: any[]): SqlTemplate
+  sql(strings: TemplateStringsArray, ...values: unknown[]): SqlTemplate
 
   // Prepared statements
-  prepare<T = any>(sql: string): PreparedStatement<T>
+  prepare<T>(sql: string): PreparedStatement<T>
 
   // Batch operations
-  insertMany(tableName: string, rows: Record<string, any>[]): number[]
+  insertMany(tableName: string, rows: Record<string, unknown>[]): number[]
 }
 
 /**
@@ -128,12 +129,12 @@ export interface RunResult {
 /**
  * Positional parameters (array)
  */
-export type ParamArray = any[]
+export type ParamArray = unknown[]
 
 /**
  * Named parameters (object with : $ or @ prefixed keys)
  */
-export type ParamObject = Record<string, any>
+export type ParamObject = Record<string, unknown>
 
 /**
  * Migration definition
@@ -169,12 +170,12 @@ export interface TableOptions {
 /**
  * Table helper for CRUD operations
  */
-export interface TableHelper<T> {
+export interface TableHelper<T extends Record<string, unknown>> {
   insert(data: Partial<T>): number
-  find(id: any, options?: { key?: string }): T | undefined
+  find(id: unknown, options?: { key?: string }): T | undefined
   where(conditions: Partial<T>): T[]
-  update(id: any, data: Partial<T>, options?: { key?: string }): number
-  delete(id: any, options?: { key?: string }): number
+  update(id: unknown, data: Partial<T>, options?: { key?: string }): number
+  delete(id: unknown, options?: { key?: string }): number
   count(conditions?: Partial<T>): number
   all(): T[]
 }
@@ -201,7 +202,7 @@ export interface ColumnInfo {
   /**
    * Default value or null
    */
-  defaultValue: any
+  defaultValue: unknown
 
   /**
    * Whether this is a primary key column
@@ -246,13 +247,13 @@ export interface SqlTemplate {
   /**
    * Parameters to bind
    */
-  params: any[]
+  params: unknown[]
 }
 
 /**
  * Prepared statement interface
  */
-export interface PreparedStatement<T = any> {
+export interface PreparedStatement<T> {
   run(params?: ParamArray | ParamObject): RunResult
   get(params?: ParamArray | ParamObject): T | undefined
   all(params?: ParamArray | ParamObject): T[]

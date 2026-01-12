@@ -68,8 +68,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     }
     if (
       typeof options.persist.storage === 'string' &&
-      options.persist.storage !== 'indexeddb' &&
-      options.persist.storage !== 'localstorage'
+      options.persist.storage !== 'indexeddb'
     ) {
       throw new Error('persist.storage must be "indexeddb" or "localstorage"')
     }
@@ -81,12 +80,27 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     SQL = await initSqlJs(
       options?.wasmPath
         ? {
-            locateFile: () => options.wasmPath!,
+            locateFile: (_file: string) => {
+              // If custom path is provided, validate it's accessible
+              // SQL.js will throw if the path doesn't work
+              return options.wasmPath ?? ''
+            },
           }
         : undefined
     )
   } catch (error) {
-    throw new Error(`Failed to load SQL.js WASM: ${(error as Error).message}`)
+    const message = (error as Error).message
+    // Check if it's a network/loading error
+    if (
+      message.includes('fetch') ||
+      message.includes('Failed to fetch') ||
+      message.includes('NetworkError') ||
+      message.includes('404') ||
+      message.includes('ENOTFOUND')
+    ) {
+      throw new Error(`Failed to load SQL.js WASM: ${message}`)
+    }
+    throw new Error(`Failed to load SQL.js WASM: ${message}`)
   }
 
   // Load data from storage or options
@@ -104,6 +118,18 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     }
   }
 
+  // Validate data if provided
+  if (initialData && initialData.length > 0) {
+    // SQLite files must start with "SQLite format 3\0"
+    const header = Array.from(initialData.slice(0, 16))
+    const expectedHeader = [83, 81, 76, 105, 116, 101, 32, 102, 111, 114, 109, 97, 116, 32, 51, 0]
+    const isValidSqlite = expectedHeader.every((byte, i) => header[i] === byte)
+
+    if (!isValidSqlite) {
+      throw new SqlError('Invalid SQLite database format')
+    }
+  }
+
   // Create database
   let db: SqlJsDatabase
   try {
@@ -115,7 +141,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
   // Enable foreign keys
   try {
     db.run('PRAGMA foreign_keys = ON')
-  } catch (error) {
+  } catch {
     // Ignore if not supported
   }
 
@@ -138,7 +164,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     }
 
     autoSaveTimer = setTimeout(() => {
-      saveToStorage().catch(error => {
+      void saveToStorage().catch((error: unknown) => {
         console.error('Auto-save failed:', error)
       })
     }, autoSaveDebounce)
@@ -159,27 +185,107 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     }
   }
 
+  // Count positional placeholders (?) in SQL
+  const countPositionalPlaceholders = (sql: string): number => {
+    // Simple count - count ? that are not in string literals
+    // This is a simplified version - doesn't handle all edge cases
+    let count = 0
+    let inString = false
+    let stringChar = ''
+
+    for (let i = 0; i < sql.length; i++) {
+      const char = sql[i]
+
+      if (inString) {
+        if (char === stringChar && sql[i - 1] !== '\\') {
+          inString = false
+        }
+      } else {
+        if (char === "'" || char === '"') {
+          inString = true
+          stringChar = char
+        } else if (char === '?') {
+          count++
+        }
+      }
+    }
+
+    return count
+  }
+
+  // Extract named parameter names from SQL (without prefixes)
+  const extractNamedParameters = (sql: string): Set<string> => {
+    const names = new Set<string>()
+    // Match :name, $name, @name patterns
+    const regex = /[:$@]([a-zA-Z_][a-zA-Z0-9_]*)/g
+    let match
+
+    while ((match = regex.exec(sql)) !== null) {
+      if (match[1]) {
+        names.add(match[1]) // Add name without prefix
+      }
+    }
+
+    return names
+  }
+
+  // Validate parameters match SQL placeholders
+  const validateParams = (sql: string, params?: ParamArray | ParamObject): void => {
+    if (!params) {
+      // No params provided - check if SQL expects any
+      const positionalCount = countPositionalPlaceholders(sql)
+      const namedParams = extractNamedParameters(sql)
+
+      if (positionalCount > 0 || namedParams.size > 0) {
+        throw new SqlError('SQL requires parameters but none provided')
+      }
+      return
+    }
+
+    if (Array.isArray(params)) {
+      // Validate positional parameters
+      const expected = countPositionalPlaceholders(sql)
+      if (params.length !== expected) {
+        throw new SqlError(
+          `Parameter count mismatch: SQL expects ${String(expected)} parameters but ${String(params.length)} provided`
+        )
+      }
+    } else {
+      // Validate named parameters
+      const requiredParams = extractNamedParameters(sql)
+      const providedParams = new Set(Object.keys(params))
+
+      for (const required of requiredParams) {
+        if (!providedParams.has(required)) {
+          throw new SqlError(`Missing required parameter: ${required}`)
+        }
+      }
+    }
+  }
+
   // Convert parameters to SQL.js format
-  const convertParams = (params?: ParamArray | ParamObject): any[] | undefined => {
+  const convertParams = (params?: ParamArray | ParamObject): unknown[] | Record<string, unknown> | undefined => {
     if (!params) return undefined
     if (Array.isArray(params)) {
       return params.map(convertValue)
     }
-    // Named parameters - SQL.js uses array with $ prefix
-    // Convert { name: 'value' } to { $name: 'value', :name: 'value', @name: 'value' }
-    const converted: Record<string, any> = {}
+    // Named parameters - SQL.js needs keys with prefix included
+    // Convert { name: 'value' } to { ':name': 'value', '$name': 'value', '@name': 'value' }
+    const converted: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(params)) {
       const convertedValue = convertValue(value)
+      // Add all three prefix variants so any style works
       converted[`:${key}`] = convertedValue
       converted[`$${key}`] = convertedValue
       converted[`@${key}`] = convertedValue
+      // Also add without prefix for flexibility
       converted[key] = convertedValue
     }
-    return [converted]
+    return converted
   }
 
   // Convert JavaScript value to SQL value
-  const convertValue = (value: any): any => {
+  const convertValue = (value: unknown): unknown => {
     if (value === null || value === undefined) return null
     if (value instanceof Date) return value.toISOString()
     if (typeof value === 'boolean') return value ? 1 : 0
@@ -191,8 +297,8 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
   }
 
   // Handle SQL errors
-  const handleSqlError = (error: any, sql?: string | undefined, params?: any[] | undefined): never => {
-    const message = error.message || String(error)
+  const handleSqlError = (error: unknown, sql?: string, params?: unknown[]): never => {
+    const message = (error as Error).message || String(error)
 
     if (message.includes('syntax') || message.includes('parse')) {
       const err = new SqlSyntaxError(message)
@@ -226,19 +332,37 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     run(sql: string, params?: ParamArray | ParamObject): RunResult {
       ensureOpen()
       try {
+        // Validate parameters match SQL placeholders
+        validateParams(sql, params)
+
         const convertedParams = convertParams(params)
-        db.run(sql, convertedParams as any)
+
+        if (convertedParams) {
+          // Use prepared statement for parameterized queries
+          const stmt = db.prepare(sql)
+          stmt.bind(convertedParams as never)
+          stmt.step()
+          stmt.free()
+        } else {
+          // No parameters, use direct execution
+          db.run(sql)
+        }
+
         const changes = db.getRowsModified()
 
-        // Get last insert rowid
+        // Get last insert rowid - check if it's actually from an INSERT
         let lastInsertRowId = 0
-        try {
-          const result = db.exec('SELECT last_insert_rowid() as id')
-          if (result[0]?.values[0]?.[0]) {
-            lastInsertRowId = result[0].values[0][0] as number
+
+        // Only get lastInsertRowId if we actually had changes (INSERT happened)
+        if (changes > 0 && (sql.trim().toUpperCase().startsWith('INSERT'))) {
+          try {
+            const result = db.exec('SELECT last_insert_rowid() as id')
+            if (result[0]?.values[0]?.[0]) {
+              lastInsertRowId = result[0].values[0][0] as number
+            }
+          } catch {
+            // Ignore - might fail
           }
-        } catch (e) {
-          // Ignore - might fail if no insert was performed
         }
 
         if (transactionDepth === 0) {
@@ -247,37 +371,51 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
         return { changes, lastInsertRowId }
       } catch (error) {
-        return handleSqlError(error, sql, params as any)
+        // Re-throw TypeError as-is (parameter validation errors)
+        if (error instanceof TypeError) {
+          throw error
+        }
+        return handleSqlError(error, sql, params as unknown[])
       }
     },
 
-    get<T = any>(sql: string, params?: ParamArray | ParamObject): T | undefined {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+    get<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, params?: ParamArray | ParamObject): T | undefined {
       ensureOpen()
       try {
+        // Validate parameters match SQL placeholders
+        validateParams(sql, params)
+
         const stmt = db.prepare(sql)
         const convertedParams = convertParams(params)
         if (convertedParams) {
-          stmt.bind(convertedParams as any)
+          stmt.bind(convertedParams as never)
         }
         if (stmt.step()) {
-          const row = stmt.getAsObject()
+          const row = stmt.getAsObject() as T
           stmt.free()
-          return row as T
+          return row
         }
         stmt.free()
         return undefined
       } catch (error) {
-        return handleSqlError(error, sql, params as any)
+        if (error instanceof TypeError) {
+          throw error
+        }
+        return handleSqlError(error, sql, params as unknown[])
       }
     },
 
-    all<T = any>(sql: string, params?: ParamArray | ParamObject): T[] {
+    all<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, params?: ParamArray | ParamObject): T[] {
       ensureOpen()
       try {
+        // Validate parameters match SQL placeholders
+        validateParams(sql, params)
+
         const stmt = db.prepare(sql)
         const convertedParams = convertParams(params)
         if (convertedParams) {
-          stmt.bind(convertedParams as any)
+          stmt.bind(convertedParams as never)
         }
         const results: T[] = []
         while (stmt.step()) {
@@ -286,7 +424,10 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         stmt.free()
         return results
       } catch (error) {
-        return handleSqlError(error, sql, params as any)
+        if (error instanceof TypeError) {
+          throw error
+        }
+        return handleSqlError(error, sql, params as unknown[])
       }
     },
 
@@ -320,7 +461,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       const uniqueVersions = new Set(versions)
       if (versions.length !== uniqueVersions.size) {
         const duplicate = versions.find((v, i) => versions.indexOf(v) !== i)
-        throw new Error(`Duplicate migration version: ${duplicate}`)
+        throw new Error(`Duplicate migration version: ${String(duplicate)}`)
       }
 
       // Create migrations table
@@ -355,7 +496,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           applied.push(migration.version)
         } catch (error) {
           const err = new MigrationError(
-            `Migration ${migration.version} failed: ${(error as Error).message}`,
+            `Migration ${String(migration.version)} failed: ${(error as Error).message}`,
             migration.version
           )
           throw err
@@ -374,7 +515,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
       const currentVersion = database.getMigrationVersion()
       if (targetVersion > currentVersion) {
-        throw new MigrationError(`Target version ${targetVersion} is greater than current version ${currentVersion}`)
+        throw new MigrationError(`Target version ${String(targetVersion)} is greater than current version ${String(currentVersion)}`)
       }
 
       // Get applied migrations
@@ -388,7 +529,10 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       // If no migrations provided with down scripts, we can't rollback
       if (!migrations || migrations.length === 0) {
         if (appliedMigrations.length > 0) {
-          throw new MigrationError(`Rollback requires migrations with down scripts`, appliedMigrations[0]!.version)
+          const firstMigration = appliedMigrations[0]
+          if (firstMigration) {
+            throw new MigrationError(`Rollback requires migrations with down scripts`, firstMigration.version)
+          }
         }
         return rolledBack
       }
@@ -396,19 +540,22 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       for (const { version } of appliedMigrations) {
         // Find migration with down script
         const migration = migrations.find(m => m.version === version)
-        if (!migration || !migration.down) {
-          throw new MigrationError(`Migration ${version} has no down script`, version)
+        if (!migration?.down) {
+          throw new MigrationError(`Migration ${String(version)} has no down script`, version)
         }
 
         try {
           await database.transaction(() => {
-            database.exec(migration.down!)
+            if (!migration.down) {
+              throw new Error('Missing down migration')
+            }
+            database.exec(migration.down)
             database.run('DELETE FROM _migrations WHERE version = ?', [version])
           })
           rolledBack.push(version)
         } catch (error) {
           throw new MigrationError(
-            `Rollback of migration ${version} failed: ${(error as Error).message}`,
+            `Rollback of migration ${String(version)} failed: ${(error as Error).message}`,
             version
           )
         }
@@ -424,7 +571,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           'SELECT MAX(version) as version FROM _migrations'
         )
         return result?.version ?? 0
-      } catch (error) {
+      } catch {
         // _migrations table doesn't exist
         return 0
       }
@@ -438,7 +585,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
       if (isNested) {
         // Use savepoint for nested transaction
-        const savepointName = `sp_${++savepointCounter}`
+        const savepointName = `sp_${String(++savepointCounter)}`
         activeSavepoints.push(savepointName)
 
         try {
@@ -459,7 +606,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           try {
             database.exec(`ROLLBACK TO ${savepointName}`)
             database.exec(`RELEASE ${savepointName}`)
-          } catch (rollbackError) {
+          } catch {
             // Savepoint might not exist if there was an error creating it
           }
           transactionDepth--
@@ -479,7 +626,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         } catch (error) {
           try {
             database.exec('ROLLBACK')
-          } catch (rollbackError) {
+          } catch {
             // Ignore rollback errors
           }
           transactionDepth--
@@ -492,7 +639,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       return transactionDepth > 0
     },
 
-    table<T = any>(tableName: string, options?: TableOptions): TableHelper<T> {
+    table<T extends Record<string, unknown>>(tableName: string, options?: TableOptions): TableHelper<T> {
       ensureOpen()
 
       if (!tableName || tableName.trim() === '') {
@@ -510,17 +657,17 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
             }
           }
 
-          const entries = Object.entries(data).filter(([_, value]) => value !== undefined)
+          const entries = Object.entries(data).filter(([_, value]) => value !== undefined) as Array<[string, unknown]>
           const columns = entries.map(([key]) => key)
           const values = entries.map(([_, value]) => value)
           const placeholders = columns.map(() => '?').join(', ')
 
           const sql = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`
-          const result = database.run(sql, values)
+          const result = database.run(sql, values as ParamArray)
           return result.lastInsertRowId
         },
 
-        find(id: any, options?: { key?: string }): T | undefined {
+        find(id: unknown, options?: { key?: string }): T | undefined {
           const keyColumn = options?.key ?? primaryKey
           return database.get<T>(`SELECT * FROM ${tableName} WHERE ${keyColumn} = ?`, [id])
         },
@@ -531,7 +678,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           }
 
           const clauses: string[] = []
-          const values: any[] = []
+          const values: unknown[] = []
 
           for (const [key, value] of Object.entries(conditions)) {
             if (value === null) {
@@ -546,9 +693,9 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           return database.all<T>(sql, values)
         },
 
-        update(id: any, data: Partial<T>, options?: { key?: string }): number {
+        update(id: unknown, data: Partial<T>, options?: { key?: string }): number {
           const keyColumn = options?.key ?? primaryKey
-          const entries = Object.entries(data).filter(([_, value]) => value !== undefined)
+          const entries = Object.entries(data).filter(([_, value]) => value !== undefined) as Array<[string, unknown]>
 
           if (entries.length === 0) {
             return 0
@@ -558,11 +705,11 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           const values = [...entries.map(([_, value]) => value), id]
 
           const sql = `UPDATE ${tableName} SET ${setClauses.join(', ')} WHERE ${keyColumn} = ?`
-          const result = database.run(sql, values)
+          const result = database.run(sql, values as ParamArray)
           return result.changes
         },
 
-        delete(id: any, options?: { key?: string }): number {
+        delete(id: unknown, options?: { key?: string }): number {
           const keyColumn = options?.key ?? primaryKey
           const result = database.run(`DELETE FROM ${tableName} WHERE ${keyColumn} = ?`, [id])
           return result.changes
@@ -575,7 +722,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           }
 
           const clauses: string[] = []
-          const values: any[] = []
+          const values: unknown[] = []
 
           for (const [key, value] of Object.entries(conditions)) {
             if (value === null) {
@@ -645,7 +792,13 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     getTableInfo(tableName: string): ColumnInfo[] {
       ensureOpen()
       try {
-        const info = database.all<any>(`PRAGMA table_info(${tableName})`)
+        const info = database.all<{
+          name: string
+          type: string
+          notnull: number
+          dflt_value: unknown
+          pk: number
+        }>(`PRAGMA table_info(${tableName})`)
         return info.map(col => ({
           name: col.name,
           type: col.type,
@@ -653,12 +806,12 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           defaultValue: col.dflt_value,
           primaryKey: col.pk === 1,
         }))
-      } catch (error) {
+      } catch {
         throw new SqlNotFoundError(`Table "${tableName}" not found`)
       }
     },
 
-    getIndexes(tableName?: string): IndexInfo[] {
+    getIndexes(_tableName?: string): IndexInfo[] {
       ensureOpen()
       // Simplified implementation
       return []
@@ -672,16 +825,8 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       }
 
       // Synchronous save before closing
-      if (options?.persist && autoSave) {
-        try {
-          const storage = getStorageAdapter(options.persist.storage)
-          const data = database.export()
-          // Note: This would need to be async in real implementation
-          // For now, we'll skip the final save in close()
-        } catch (error) {
-          console.error('Failed to save before close:', error)
-        }
-      }
+      // Note: This would need to be async in real implementation
+      // For now, we'll skip the final save in close()
 
       db.close()
       closed = true
@@ -710,14 +855,14 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       database.close()
     },
 
-    sql(strings: TemplateStringsArray, ...values: any[]): SqlTemplate {
+    sql(strings: TemplateStringsArray, ...values: unknown[]): SqlTemplate {
       const sql = strings.reduce((acc, str, i) => {
         return acc + str + (i < values.length ? '?' : '')
       }, '')
       return { sql, params: values }
     },
 
-    prepare<T = any>(sql: string): PreparedStatement<T> {
+    prepare<T>(sql: string): PreparedStatement<T> {
       ensureOpen()
       const stmt = db.prepare(sql)
       let finalized = false
@@ -733,7 +878,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           ensureNotFinalized()
           const convertedParams = convertParams(params)
           if (convertedParams) {
-            stmt.bind(convertedParams as any)
+            stmt.bind(convertedParams as never)
           }
           stmt.step()
           stmt.reset()
@@ -746,7 +891,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           ensureNotFinalized()
           const convertedParams = convertParams(params)
           if (convertedParams) {
-            stmt.bind(convertedParams as any)
+            stmt.bind(convertedParams as never)
           }
           if (stmt.step()) {
             const row = stmt.getAsObject() as T
@@ -761,7 +906,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           ensureNotFinalized()
           const convertedParams = convertParams(params)
           if (convertedParams) {
-            stmt.bind(convertedParams as any)
+            stmt.bind(convertedParams as never)
           }
           const results: T[] = []
           while (stmt.step()) {
@@ -780,7 +925,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       }
     },
 
-    insertMany(tableName: string, rows: Record<string, any>[]): number[] {
+    insertMany(tableName: string, rows: Record<string, unknown>[]): number[] {
       ensureOpen()
 
       if (rows.length === 0) {
@@ -788,7 +933,11 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       }
 
       // Validate consistent columns
-      const firstRowKeys = Object.keys(rows[0]!)
+      const firstRow = rows[0]
+      if (!firstRow) {
+        return []
+      }
+      const firstRowKeys = Object.keys(firstRow)
       for (const row of rows) {
         const keys = Object.keys(row)
         if (keys.length !== firstRowKeys.length || !keys.every(k => firstRowKeys.includes(k))) {
@@ -798,7 +947,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
       const ids: number[] = []
 
-      database.transaction(() => {
+      void database.transaction(() => {
         for (const row of rows) {
           const table = database.table(tableName)
           const id = table.insert(row)
@@ -823,43 +972,43 @@ function getStorageAdapter(storage: 'indexeddb' | 'localstorage' | StorageAdapte
 
   if (storage === 'indexeddb') {
     return {
-      async getItem(key: string): Promise<Uint8Array | null> {
+      getItem(_key: string): Promise<Uint8Array | null> {
         // Simplified IndexedDB implementation
-        return null
+        return Promise.resolve(null)
       },
-      async setItem(key: string, value: Uint8Array): Promise<void> {
+      setItem(_key: string, _value: Uint8Array): Promise<void> {
         // Simplified IndexedDB implementation
+        return Promise.resolve()
       },
-      async removeItem(key: string): Promise<void> {
+      removeItem(_key: string): Promise<void> {
         // Simplified IndexedDB implementation
+        return Promise.resolve()
       },
     }
   }
 
-  if (storage === 'localstorage') {
-    return {
-      async getItem(key: string): Promise<Uint8Array | null> {
-        const stored = localStorage.getItem(`__motioneffector_sql_${key}`)
-        if (!stored) return null
-        // Decode base64
-        const binary = atob(stored)
-        const bytes = new Uint8Array(binary.length)
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i)
-        }
-        return bytes
-      },
-      async setItem(key: string, value: Uint8Array): Promise<void> {
-        // Encode as base64
-        const binary = Array.from(value, byte => String.fromCharCode(byte)).join('')
-        const base64 = btoa(binary)
-        localStorage.setItem(`__motioneffector_sql_${key}`, base64)
-      },
-      async removeItem(key: string): Promise<void> {
-        localStorage.removeItem(`__motioneffector_sql_${key}`)
-      },
-    }
+  return {
+    getItem(key: string): Promise<Uint8Array | null> {
+      const stored = localStorage.getItem(`__motioneffector_sql_${key}`)
+      if (!stored) return Promise.resolve(null)
+      // Decode base64
+      const binary = atob(stored)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i)
+      }
+      return Promise.resolve(bytes)
+    },
+    setItem(key: string, value: Uint8Array): Promise<void> {
+      // Encode as base64
+      const binary = Array.from(value, byte => String.fromCharCode(byte)).join('')
+      const base64 = btoa(binary)
+      localStorage.setItem(`__motioneffector_sql_${key}`, base64)
+      return Promise.resolve()
+    },
+    removeItem(key: string): Promise<void> {
+      localStorage.removeItem(`__motioneffector_sql_${key}`)
+      return Promise.resolve()
+    },
   }
-
-  throw new Error(`Unknown storage type: ${storage}`)
 }

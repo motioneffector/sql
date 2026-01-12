@@ -168,9 +168,9 @@ describe('db.transaction(fn)', () => {
 
   describe('Nested Transactions (Savepoints)', () => {
     it('nested transaction() calls use SQLite SAVEPOINTs', async () => {
-      await db.transaction(() => {
+      await db.transaction(async () => {
         db.run('INSERT INTO test VALUES (1)')
-        db.transaction(() => {
+        await db.transaction(() => {
           db.run('INSERT INTO test VALUES (2)')
         })
       })
@@ -179,9 +179,9 @@ describe('db.transaction(fn)', () => {
     })
 
     it('outer transaction can contain inner transaction', async () => {
-      await db.transaction(() => {
+      await db.transaction(async () => {
         db.run('INSERT INTO test VALUES (1)')
-        db.transaction(() => {
+        await db.transaction(() => {
           db.run('INSERT INTO test VALUES (2)')
         })
         db.run('INSERT INTO test VALUES (3)')
@@ -190,11 +190,11 @@ describe('db.transaction(fn)', () => {
     })
 
     it('inner transaction failure rolls back to savepoint, not entire transaction', async () => {
-      await db.transaction(() => {
+      await db.transaction(async () => {
         db.run('INSERT INTO test VALUES (1)')
 
         try {
-          db.transaction(() => {
+          await db.transaction(() => {
             db.run('INSERT INTO test VALUES (2)')
             throw new Error('Inner failure')
           })
@@ -210,11 +210,11 @@ describe('db.transaction(fn)', () => {
     })
 
     it('outer transaction can continue after inner transaction failure (if caught)', async () => {
-      await db.transaction(() => {
+      await db.transaction(async () => {
         db.run('INSERT INTO test VALUES (1)')
 
         try {
-          db.transaction(() => {
+          await db.transaction(() => {
             db.run('INSERT INTO test VALUES (2)')
             throw new Error('Inner error')
           })
@@ -231,10 +231,10 @@ describe('db.transaction(fn)', () => {
 
     it('outer transaction failure rolls back everything including inner changes', async () => {
       try {
-        await db.transaction(() => {
+        await db.transaction(async () => {
           db.run('INSERT INTO test VALUES (1)')
 
-          db.transaction(() => {
+          await db.transaction(() => {
             db.run('INSERT INTO test VALUES (2)')
           })
 
@@ -251,11 +251,11 @@ describe('db.transaction(fn)', () => {
     it('savepoint names are unique (e.g., sp_1, sp_2, sp_3)', async () => {
       // This is more of an implementation detail, but we can test that multiple
       // nested transactions work without conflicts
-      await db.transaction(() => {
+      await db.transaction(async () => {
         db.run('INSERT INTO test VALUES (1)')
-        db.transaction(() => {
+        await db.transaction(async () => {
           db.run('INSERT INTO test VALUES (2)')
-          db.transaction(() => {
+          await db.transaction(() => {
             db.run('INSERT INTO test VALUES (3)')
           })
         })
@@ -264,13 +264,13 @@ describe('db.transaction(fn)', () => {
     })
 
     it('deeply nested transactions work (3+ levels)', async () => {
-      await db.transaction(() => {
+      await db.transaction(async () => {
         db.run('INSERT INTO test VALUES (1)')
-        db.transaction(() => {
+        await db.transaction(async () => {
           db.run('INSERT INTO test VALUES (2)')
-          db.transaction(() => {
+          await db.transaction(async () => {
             db.run('INSERT INTO test VALUES (3)')
-            db.transaction(() => {
+            await db.transaction(() => {
               db.run('INSERT INTO test VALUES (4)')
             })
           })

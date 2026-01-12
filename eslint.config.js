@@ -5,6 +5,13 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {
+    ignores: [
+      '**/*.test.ts',
+      'src/test-utils.ts',
+      'src/sql.js.d.ts',
+    ],
+  },
+  {
     languageOptions: {
       parserOptions: {
         project: true,

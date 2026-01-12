@@ -19,7 +19,7 @@ export class SqlError extends Error {
   /**
    * Parameters that were bound (if applicable)
    */
-  params?: any[] | undefined
+  params?: unknown[] | undefined
 
   constructor(message: string, code = 'SQLITE_ERROR') {
     super(message)
@@ -68,7 +68,7 @@ export class MigrationError extends SqlError {
    */
   version?: number | undefined
 
-  constructor(message: string, version?: number | undefined) {
+  constructor(message: string, version?: number  ) {
     super(message, 'MIGRATION_ERROR')
     this.name = 'MigrationError'
     if (version !== undefined) {
