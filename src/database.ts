@@ -27,7 +27,38 @@ import {
 } from './errors'
 
 /**
- * Create and initialize a database
+ * Create and initialize a SQLite database in the browser using SQL.js.
+ *
+ * @param options - Configuration options for the database
+ * @returns A Promise that resolves to a Database instance
+ *
+ * @example
+ * ```typescript
+ * // Create an empty database
+ * const db = await createDatabase()
+ *
+ * // Load from existing data
+ * const db = await createDatabase({ data: existingUint8Array })
+ *
+ * // With persistence
+ * const db = await createDatabase({
+ *   persist: {
+ *     key: 'my-app-db',
+ *     storage: 'indexeddb'
+ *   }
+ * })
+ *
+ * // With auto-save disabled
+ * const db = await createDatabase({
+ *   persist: { key: 'my-db', storage: 'localstorage' },
+ *   autoSave: false
+ * })
+ * ```
+ *
+ * @throws {Error} If WASM file fails to load
+ * @throws {SqlError} If provided data is not valid SQLite format
+ * @throws {Error} If persist.storage is not 'indexeddb' or 'localstorage'
+ * @throws {Error} If persist.key is empty string
  */
 export async function createDatabase(options?: DatabaseOptions): Promise<Database> {
   // Validate options
@@ -160,33 +191,33 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
   }
 
   // Handle SQL errors
-  const handleSqlError = (error: any, sql?: string, params?: any[]): never => {
+  const handleSqlError = (error: any, sql?: string | undefined, params?: any[] | undefined): never => {
     const message = error.message || String(error)
 
     if (message.includes('syntax') || message.includes('parse')) {
       const err = new SqlSyntaxError(message)
-      err.sql = sql
-      err.params = params
+      if (sql !== undefined) err.sql = sql
+      if (params !== undefined) err.params = params
       throw err
     }
 
     if (message.includes('constraint') || message.includes('UNIQUE') || message.includes('NOT NULL')) {
       const err = new SqlConstraintError(message)
-      err.sql = sql
-      err.params = params
+      if (sql !== undefined) err.sql = sql
+      if (params !== undefined) err.params = params
       throw err
     }
 
     if (message.includes('no such table') || message.includes('no such column')) {
       const err = new SqlNotFoundError(message)
-      err.sql = sql
-      err.params = params
+      if (sql !== undefined) err.sql = sql
+      if (params !== undefined) err.params = params
       throw err
     }
 
     const err = new SqlError(message)
-    err.sql = sql
-    err.params = params
+    if (sql !== undefined) err.sql = sql
+    if (params !== undefined) err.params = params
     throw err
   }
 
@@ -216,7 +247,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
         return { changes, lastInsertRowId }
       } catch (error) {
-        handleSqlError(error, sql, params as any)
+        return handleSqlError(error, sql, params as any)
       }
     },
 
@@ -236,7 +267,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         stmt.free()
         return undefined
       } catch (error) {
-        handleSqlError(error, sql, params as any)
+        return handleSqlError(error, sql, params as any)
       }
     },
 
@@ -255,7 +286,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         stmt.free()
         return results
       } catch (error) {
-        handleSqlError(error, sql, params as any)
+        return handleSqlError(error, sql, params as any)
       }
     },
 

@@ -14,12 +14,12 @@ export class SqlError extends Error {
   /**
    * SQL statement that caused the error (if applicable)
    */
-  sql?: string
+  sql?: string | undefined
 
   /**
    * Parameters that were bound (if applicable)
    */
-  params?: any[]
+  params?: any[] | undefined
 
   constructor(message: string, code = 'SQLITE_ERROR') {
     super(message)
@@ -66,11 +66,13 @@ export class MigrationError extends SqlError {
   /**
    * Migration version that caused the error
    */
-  version?: number
+  version?: number | undefined
 
-  constructor(message: string, version?: number) {
+  constructor(message: string, version?: number | undefined) {
     super(message, 'MIGRATION_ERROR')
     this.name = 'MigrationError'
-    this.version = version
+    if (version !== undefined) {
+      this.version = version
+    }
   }
 }
