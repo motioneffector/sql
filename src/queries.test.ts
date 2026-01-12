@@ -33,37 +33,55 @@ describe('db.run(sql, params?)', () => {
         'Alicia',
         'alice@example.com',
       ])
-      expect(result).toBeDefined()
+      expect(result).toHaveProperty('changes')
+      expect(result).toHaveProperty('lastInsertRowId')
+      expect(typeof result.changes).toBe('number')
+      expect(typeof result.lastInsertRowId).toBe('number')
     })
 
     it('executes DELETE statement and returns result object', () => {
       db.exec(USERS_SCHEMA)
       db.run('INSERT INTO users (name, email) VALUES (?, ?)', ['Alice', 'alice@example.com'])
       const result = db.run('DELETE FROM users WHERE email = ?', ['alice@example.com'])
-      expect(result).toBeDefined()
+      expect(result).toHaveProperty('changes')
+      expect(result).toHaveProperty('lastInsertRowId')
+      expect(typeof result.changes).toBe('number')
+      expect(typeof result.lastInsertRowId).toBe('number')
     })
 
     it('executes CREATE TABLE statement and returns result object', () => {
       const result = db.run('CREATE TABLE test (id INTEGER PRIMARY KEY)')
-      expect(result).toBeDefined()
+      expect(result).toHaveProperty('changes')
+      expect(result).toHaveProperty('lastInsertRowId')
+      expect(typeof result.changes).toBe('number')
+      expect(typeof result.lastInsertRowId).toBe('number')
     })
 
     it('executes DROP TABLE statement and returns result object', () => {
       db.run('CREATE TABLE test (id INTEGER)')
       const result = db.run('DROP TABLE test')
-      expect(result).toBeDefined()
+      expect(result).toHaveProperty('changes')
+      expect(result).toHaveProperty('lastInsertRowId')
+      expect(typeof result.changes).toBe('number')
+      expect(typeof result.lastInsertRowId).toBe('number')
     })
 
     it('executes ALTER TABLE statement and returns result object', () => {
       db.run('CREATE TABLE test (id INTEGER)')
       const result = db.run('ALTER TABLE test ADD COLUMN name TEXT')
-      expect(result).toBeDefined()
+      expect(result).toHaveProperty('changes')
+      expect(result).toHaveProperty('lastInsertRowId')
+      expect(typeof result.changes).toBe('number')
+      expect(typeof result.lastInsertRowId).toBe('number')
     })
 
     it('executes CREATE INDEX statement and returns result object', () => {
       db.exec(USERS_SCHEMA)
       const result = db.run('CREATE INDEX idx_users_email ON users(email)')
-      expect(result).toBeDefined()
+      expect(result).toHaveProperty('changes')
+      expect(result).toHaveProperty('lastInsertRowId')
+      expect(typeof result.changes).toBe('number')
+      expect(typeof result.lastInsertRowId).toBe('number')
     })
   })
 
