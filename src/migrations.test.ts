@@ -325,14 +325,14 @@ describe('db.migrate(migrations)', () => {
 
 describe('db.rollback(targetVersion?)', () => {
   let db: Database
+  const migrations: Migration[] = [
+    { version: 1, up: 'CREATE TABLE a (id INTEGER)', down: 'DROP TABLE a' },
+    { version: 2, up: 'CREATE TABLE b (id INTEGER)', down: 'DROP TABLE b' },
+    { version: 3, up: 'CREATE TABLE c (id INTEGER)', down: 'DROP TABLE c' },
+  ]
 
   beforeEach(async () => {
     db = await createDatabase()
-    const migrations: Migration[] = [
-      { version: 1, up: 'CREATE TABLE a (id INTEGER)', down: 'DROP TABLE a' },
-      { version: 2, up: 'CREATE TABLE b (id INTEGER)', down: 'DROP TABLE b' },
-      { version: 3, up: 'CREATE TABLE c (id INTEGER)', down: 'DROP TABLE c' },
-    ]
     await db.migrate(migrations)
   })
 
@@ -341,31 +341,31 @@ describe('db.rollback(targetVersion?)', () => {
   })
 
   it('rolls back to specified target version', async () => {
-    const rolledBack = await db.rollback(1)
+    const rolledBack = await db.rollback(1, migrations)
     expect(rolledBack).toEqual([3, 2])
     expect(db.getMigrationVersion()).toBe(1)
   })
 
   it('targetVersion 0 rolls back all migrations (empty schema)', async () => {
-    const rolledBack = await db.rollback(0)
+    const rolledBack = await db.rollback(0, migrations)
     expect(rolledBack).toEqual([3, 2, 1])
     expect(db.getMigrationVersion()).toBe(0)
     expect(db.getTables()).toEqual([])
   })
 
   it('targetVersion undefined defaults to 0 (roll back everything)', async () => {
-    const rolledBack = await db.rollback()
+    const rolledBack = await db.rollback(undefined, migrations)
     expect(rolledBack).toEqual([3, 2, 1])
     expect(db.getMigrationVersion()).toBe(0)
   })
 
   it('runs down migrations in descending order (newest first)', async () => {
-    const rolledBack = await db.rollback(0)
+    const rolledBack = await db.rollback(0, migrations)
     expect(rolledBack).toEqual([3, 2, 1])
   })
 
   it('removes entries from _migrations table as each rollback completes', async () => {
-    await db.rollback(1)
+    await db.rollback(1, migrations)
     const result = db.all<{ version: number }>('SELECT version FROM _migrations ORDER BY version')
     expect(result.map(r => r.version)).toEqual([1])
   })
@@ -387,7 +387,7 @@ describe('db.rollback(targetVersion?)', () => {
   })
 
   it('returns array of version numbers that were rolled back', async () => {
-    const rolledBack = await db.rollback(1)
+    const rolledBack = await db.rollback(1, migrations)
     expect(rolledBack).toBeInstanceOf(Array)
     expect(rolledBack).toEqual([3, 2])
   })
@@ -439,7 +439,7 @@ describe('db.getMigrationVersion()', () => {
       { version: 3, up: 'CREATE TABLE c (id INTEGER)', down: 'DROP TABLE c' },
     ]
     await db.migrate(migrations)
-    await db.rollback(1)
+    await db.rollback(1, migrations)
     expect(db.getMigrationVersion()).toBe(1)
   })
 })

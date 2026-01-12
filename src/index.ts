@@ -1,6 +1,34 @@
-// @motioneffector/sql
-// SQL.js wrapper for local browser database
+/**
+ * @motioneffector/sql
+ * SQL.js wrapper for browser-based SQLite databases
+ */
 
-export function hello(): string {
-  return 'sql library loaded'
-}
+// Core functions
+export { createDatabase } from './database'
+
+// Errors
+export {
+  SqlError,
+  SqlSyntaxError,
+  SqlConstraintError,
+  SqlNotFoundError,
+  MigrationError,
+} from './errors'
+
+// Types
+export type {
+  Database,
+  DatabaseOptions,
+  PersistConfig,
+  StorageAdapter,
+  RunResult,
+  ParamArray,
+  ParamObject,
+  Migration,
+  TableOptions,
+  TableHelper,
+  ColumnInfo,
+  IndexInfo,
+  SqlTemplate,
+  PreparedStatement,
+} from './types'

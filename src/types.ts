@@ -14,7 +14,7 @@ export interface Database {
 
   // Migrations
   migrate(migrations: Migration[]): Promise<number[]>
-  rollback(targetVersion?: number): Promise<number[]>
+  rollback(targetVersion?: number, migrations?: Migration[]): Promise<number[]>
   getMigrationVersion(): number
 
   // Transactions
