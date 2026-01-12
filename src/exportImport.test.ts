@@ -407,4 +407,29 @@ describe('Round-trip Integrity', () => {
     db.close()
     newDb.close()
   })
+
+  it('export → import preserves empty strings (distinct from NULL)', async () => {
+    const db = await createDatabase()
+    db.exec('CREATE TABLE test (value TEXT)')
+    db.run('INSERT INTO test VALUES (?)', [''])
+    db.run('INSERT INTO test VALUES (NULL)')
+
+    const data = db.export()
+
+    const newDb = await createDatabase()
+    newDb.import(data)
+
+    const rows = newDb.all<{ value: string | null }>('SELECT * FROM test')
+    expect(rows).toHaveLength(2)
+    expect(rows.some(r => r.value === '')).toBe(true)
+    expect(rows.some(r => r.value === null)).toBe(true)
+    // Verify they are distinct
+    const emptyString = rows.find(r => r.value === '')
+    const nullValue = rows.find(r => r.value === null)
+    expect(emptyString).toBeDefined()
+    expect(nullValue).toBeDefined()
+
+    db.close()
+    newDb.close()
+  })
 })

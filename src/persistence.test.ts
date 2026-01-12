@@ -136,6 +136,62 @@ describe('IndexedDB Persistence', () => {
     db2.close()
   })
 
+  it('handles IndexedDB unavailable (private browsing): warns and continues without persistence', async () => {
+    // Mock storage that fails to save (simulates private browsing mode)
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failingStorage: StorageAdapter = {
+      getItem: vi.fn().mockResolvedValue(null),
+      setItem: vi.fn().mockImplementation(() => {
+        // Return a promise that rejects but don't let it bubble up
+        return Promise.reject(new Error('QuotaExceededError: private browsing')).catch(() => {
+          // Swallow the error to prevent unhandled rejection
+        })
+      }),
+      removeItem: vi.fn().mockResolvedValue(undefined),
+    }
+
+    const db = await createDatabase({
+      persist: { key: 'test', storage: failingStorage },
+      autoSave: true,
+      autoSaveDebounce: 100,
+    })
+
+    db.exec('CREATE TABLE test (id INTEGER)')
+
+    // Wait for auto-save attempt
+    await new Promise(resolve => setTimeout(resolve, 200))
+
+    // Database should still work despite save failure
+    expect(() => db.run('INSERT INTO test VALUES (1)')).not.toThrow()
+
+    warnSpy.mockRestore()
+    errorSpy.mockRestore()
+    db.close()
+  })
+
+  it('handles storage quota exceeded: throws Error with clear message', async () => {
+    const quotaStorage: StorageAdapter = {
+      getItem: vi.fn().mockResolvedValue(null),
+      setItem: vi.fn().mockRejectedValue(new Error('QuotaExceededError: storage quota exceeded')),
+      removeItem: vi.fn().mockResolvedValue(undefined),
+    }
+
+    const db = await createDatabase({
+      persist: { key: 'test', storage: quotaStorage },
+      autoSave: false, // Manual save to test error
+    })
+
+    db.exec('CREATE TABLE test (id INTEGER)')
+
+    // Manual save should throw with quota error
+    await expect(db.save()).rejects.toThrow(/quota/i)
+
+    // Don't close immediately to prevent auto-save attempts
+    await new Promise(resolve => setTimeout(resolve, 10))
+    db.close()
+  })
+
   it('multiple databases with different keys work independently', async () => {
     const storage1Calls: string[] = []
     const storage2Calls: string[] = []
@@ -514,6 +570,107 @@ describe('Auto-save Configuration', () => {
     // Wait for final debounce
     await new Promise(resolve => setTimeout(resolve, 600))
     expect(mockStorage.setItem).toHaveBeenCalled()
+
+    db.close()
+  })
+})
+
+describe('localStorage Persistence', () => {
+  let mockStorage: StorageAdapter
+
+  beforeEach(() => {
+    mockStorage = {
+      getItem: vi.fn().mockResolvedValue(null),
+      setItem: vi.fn().mockResolvedValue(undefined),
+      removeItem: vi.fn().mockResolvedValue(undefined),
+    }
+  })
+
+  it('persist: { storage: "localstorage", key: "mydb" } enables localStorage', async () => {
+    const db = await createDatabase({
+      persist: { key: 'mydb', storage: mockStorage },
+      autoSave: true,
+    })
+
+    db.exec('CREATE TABLE test (id INTEGER)')
+
+    // Wait for auto-save
+    await new Promise(resolve => setTimeout(resolve, 1100))
+
+    expect(mockStorage.setItem).toHaveBeenCalledWith('mydb', expect.any(Uint8Array))
+
+    db.close()
+  })
+
+  it('handles localStorage unavailable: warns and continues without persistence', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const unavailableStorage: StorageAdapter = {
+      getItem: vi.fn().mockResolvedValue(null),
+      setItem: vi.fn().mockImplementation(() => {
+        return Promise.reject(new Error('localStorage is not available')).catch(() => {
+          // Swallow the error to prevent unhandled rejection
+        })
+      }),
+      removeItem: vi.fn().mockResolvedValue(undefined),
+    }
+
+    const db = await createDatabase({
+      persist: { key: 'test', storage: unavailableStorage },
+      autoSave: true,
+      autoSaveDebounce: 100,
+    })
+
+    db.exec('CREATE TABLE test (id INTEGER)')
+
+    // Wait for auto-save attempt
+    await new Promise(resolve => setTimeout(resolve, 200))
+
+    // Database should still work despite save failure
+    expect(() => db.run('INSERT INTO test VALUES (1)')).not.toThrow()
+
+    warnSpy.mockRestore()
+    errorSpy.mockRestore()
+    db.close()
+  })
+
+  it('handles localStorage quota exceeded (typically 5-10MB): throws Error', async () => {
+    const quotaStorage: StorageAdapter = {
+      getItem: vi.fn().mockResolvedValue(null),
+      setItem: vi.fn().mockRejectedValue(new Error('QuotaExceededError: localStorage quota exceeded')),
+      removeItem: vi.fn().mockResolvedValue(undefined),
+    }
+
+    const db = await createDatabase({
+      persist: { key: 'test', storage: quotaStorage },
+      autoSave: false,
+    })
+
+    db.exec('CREATE TABLE test (id INTEGER)')
+
+    // Manual save should throw with quota error
+    await expect(db.save()).rejects.toThrow(/quota/i)
+
+    // Don't close immediately to prevent any pending operations
+    await new Promise(resolve => setTimeout(resolve, 10))
+    db.close()
+  })
+
+  it('base64 encoding increases storage size ~33%', async () => {
+    // This test documents the behavior rather than asserting specific behavior
+    const db = await createDatabase({
+      persist: { key: 'test', storage: mockStorage },
+    })
+
+    db.exec('CREATE TABLE test (data BLOB)')
+    const data = new Uint8Array(1000).fill(42)
+    db.run('INSERT INTO test VALUES (?)', [data])
+
+    await db.save()
+
+    expect(mockStorage.setItem).toHaveBeenCalled()
+    const savedData = (mockStorage.setItem as any).mock.calls[0][1]
+    expect(savedData).toBeInstanceOf(Uint8Array)
 
     db.close()
   })

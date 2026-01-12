@@ -370,13 +370,4 @@ describe('Environment Compatibility', () => {
     expect(result).toBeDefined()
     db.close()
   })
-
-  // Note: Web Worker and Electron tests would require specific test setup
-  it.skip('works in Web Worker', () => {
-    // Would need Web Worker test harness
-  })
-
-  it.skip('works in Electron renderer process', () => {
-    // Would need Electron test environment
-  })
 })

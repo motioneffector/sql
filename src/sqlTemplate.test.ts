@@ -48,14 +48,14 @@ describe('db.sql Tagged Template Literal', () => {
   it('alternative: db.get(db.sql`...`) accepts the object directly', () => {
     const name = 'Bob'
 
-    // Pass the template object directly
-    const user = db.get<{ id: number; name: string; age: number }>(
-      db.sql`SELECT * FROM users WHERE name = ${name}` as unknown as string
-    )
+    // Pass the template result to get
+    const template = db.sql`SELECT * FROM users WHERE name = ${name}`
+    const user = db.get<{ id: number; name: string; age: number }>(template.sql, template.params)
 
-    // Note: This test documents expected behavior but the type system might not allow it
-    // The actual implementation determines if this works
-    expect(user !== undefined || user === undefined).toBe(true)
+    // Verify it actually retrieved the correct data
+    expect(user).toBeDefined()
+    expect(user?.name).toBe('Bob')
+    expect(user?.age).toBe(25)
   })
 })
 

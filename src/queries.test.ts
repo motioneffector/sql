@@ -164,8 +164,11 @@ describe('db.run(sql, params?)', () => {
     it('"SELECT * FROM t WHERE a = ? AND b = ?" with [1, "hello"] binds correctly', () => {
       db.run('CREATE TABLE t (a INTEGER, b TEXT)')
       db.run('INSERT INTO t (a, b) VALUES (?, ?)', [1, 'hello'])
-      const result = db.get('SELECT * FROM t WHERE a = ? AND b = ?', [1, 'hello'])
+      db.run('INSERT INTO t (a, b) VALUES (?, ?)', [2, 'world'])
+      const result = db.get<{ a: number; b: string }>('SELECT * FROM t WHERE a = ? AND b = ?', [1, 'hello'])
       expect(result).toBeDefined()
+      expect(result?.a).toBe(1)
+      expect(result?.b).toBe('hello')
     })
 
     it('parameters bind in order: first ? gets params[0], second ? gets params[1]', () => {
@@ -550,8 +553,12 @@ describe('db.get<T>(sql, params?)', () => {
 
     it('no runtime validation of T (type assertion only)', () => {
       db.run('INSERT INTO users (name) VALUES (?)', ['Alice'])
+      // Type says it's boolean, but runtime returns string - no validation happens
       const result = db.get<{ wrongType: boolean }>('SELECT name FROM users')
       expect(result).toBeDefined()
+      // Verify the actual data is still a string, proving no runtime type checking occurred
+      expect(typeof (result as any).name).toBe('string')
+      expect((result as any).name).toBe('Alice')
     })
 
     it('works with interface types: db.get<User>(...)', () => {

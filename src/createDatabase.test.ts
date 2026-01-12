@@ -182,14 +182,6 @@ describe('createDatabase(options?)', () => {
 })
 
 describe('Initialization Errors', () => {
-  // Skip: In current build, sql.js has WASM embedded, so invalid wasmPath doesn't cause failure.
-  // This test would only work when WASM needs to be fetched externally.
-  it.skip('throws Error if WASM file fails to load (network error, 404)', async () => {
-    await expect(
-      createDatabase({ wasmPath: 'https://invalid-url-that-does-not-exist.com/sql.wasm' })
-    ).rejects.toThrow()
-  })
-
   it('throws SqlError if provided data is not valid SQLite format', async () => {
     const invalidData = new Uint8Array([1, 2, 3, 4, 5])
     await expect(createDatabase({ data: invalidData })).rejects.toThrow(SqlError)

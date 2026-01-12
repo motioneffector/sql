@@ -55,27 +55,29 @@ describe('db.insertMany(tableName, rows)', () => {
   it('all rows must have same keys (columns)', () => {
     const rows = [
       { name: 'Alice', age: 30 },
-      { name: 'Bob' }, // Missing age
+      { name: 'Bob', age: 25 },
+      { name: 'Charlie', age: 35 },
     ]
 
-    // This may or may not throw depending on implementation
-    // If it doesn't throw, it should handle missing keys as NULL/undefined
     const result = db.insertMany('users', rows)
-    expect(result).toBeDefined()
+    expect(result).toHaveLength(3)
+
+    // Verify all rows were inserted with correct data
+    const users = db.all<{ name: string; age: number }>('SELECT * FROM users ORDER BY id')
+    expect(users).toHaveLength(3)
+    expect(users.every(u => typeof u.age === 'number')).toBe(true)
   })
 
   it('throws Error if rows have inconsistent columns', () => {
     const rows = [
       { name: 'Alice', age: 30 },
-      { name: 'Bob', email: 'bob@example.com' }, // Different columns
+      { name: 'Bob', email: 'bob@example.com' }, // Different columns - has email instead of age
     ]
 
-    // Implementation may choose to throw or handle gracefully
-    try {
+    // Should throw an error because column sets are inconsistent
+    expect(() => {
       db.insertMany('users', rows)
-    } catch (error) {
-      expect(error).toBeDefined()
-    }
+    }).toThrow()
   })
 
   it('rolls back all inserts if any fails', () => {
