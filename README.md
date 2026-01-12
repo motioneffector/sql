@@ -6,6 +6,10 @@ A lightweight TypeScript wrapper around [SQL.js](https://github.com/sql-js/sql.j
 [![license](https://img.shields.io/npm/l/@motioneffector/sql.svg)](https://github.com/motioneffector/sql/blob/main/LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 
+## Demo
+
+[Try the interactive demo](https://motioneffector.github.io/sql/) to see the library in action.
+
 ## Installation
 
 ```bash
