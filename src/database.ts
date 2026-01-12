@@ -2,7 +2,7 @@
  * Core database implementation
  */
 
-import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js'
+import initSqlJs, { type Database as SqlJsDatabase, type Statement } from 'sql.js'
 import type {
   Database,
   DatabaseOptions,
@@ -326,7 +326,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
     // Extract SQLite error code if present (format: "SQLITE_XXX: message")
     const codeMatch = message.match(/^(SQLITE_\w+)/)
-    const code = codeMatch ? codeMatch[1] : 'SQLITE_ERROR'
+    const code: string = codeMatch?.[1] ?? 'SQLITE_ERROR'
 
     // Check for syntax errors
     if (
@@ -1058,7 +1058,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     prepare<T>(sql: string): PreparedStatement<T> {
       ensureOpen()
 
-      let stmt: SqlJs.Statement
+      let stmt: Statement
       try {
         stmt = db.prepare(sql)
       } catch (error) {
