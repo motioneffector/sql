@@ -112,7 +112,7 @@
 </head>
 <body>
   <h1>@motioneffector/sql Demo</h1>
-  <p>Browser-based SQLite wrapper using SQL.js. Test all features below.</p>
+  <p>Browser-based SQLite wrapper using SQL.js with automatic transaction queue management. Test all features below including concurrent transaction handling, migrations, persistence, and more.</p>
 
   <section id="test-runner">
     <h2>🧪 Automated Test Suite</h2>
@@ -172,6 +172,20 @@ SELECT * FROM users;</textarea>
     </section>
 
     <section>
+      <h2>🔀 Transaction Queue</h2>
+      <p>Demonstrates automatic queueing of concurrent transactions - no savepoint conflicts!</p>
+      <div class="controls">
+        <button class="action-btn" onclick="demoQueueConcurrent()">Run 5 Concurrent Transactions</button>
+        <button class="action-btn" onclick="demoQueueWithProgress()">Queue with Progress</button>
+        <button class="action-btn" onclick="demoQueueNested()">Concurrent + Nested</button>
+        <button class="action-btn" onclick="demoQueueStress()">Stress Test (100 concurrent)</button>
+      </div>
+      <div id="queue-output" class="output"></div>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section>
       <h2>📦 Export / Import</h2>
       <p>Export database to binary and import it back.</p>
       <div class="controls">
@@ -181,7 +195,6 @@ SELECT * FROM users;</textarea>
       </div>
       <div id="export-output" class="output"></div>
     </section>
-  </div>
 
   <section>
     <h2>🔧 Migrations</h2>
@@ -343,6 +356,10 @@ SELECT * FROM users;</textarea>
       let savepointCounter = 0;
       const activeSavepoints = [];
 
+      // Transaction queue for concurrent transaction management
+      let transactionQueue = [];
+      let isProcessingQueue = false;
+
       const autoSave = options?.autoSave ?? (options?.persist ? true : false);
       const autoSaveDebounce = options?.autoSaveDebounce ?? 1000;
       let autoSaveTimer;
@@ -367,6 +384,49 @@ SELECT * FROM users;</textarea>
       const ensureOpen = () => {
         if (closed) throw new Error('Database is closed');
       };
+
+      // Process queued transactions serially
+      async function processQueue() {
+        // Guard: Only one processor runs at a time
+        if (isProcessingQueue) return;
+        if (transactionQueue.length === 0) return;
+
+        isProcessingQueue = true;
+
+        while (transactionQueue.length > 0) {
+          const item = transactionQueue.shift();
+          if (!item) break;
+
+          const { fn, resolve, reject } = item;
+
+          try {
+            db.exec('BEGIN');
+
+            // Increment depth to track that we're in a transaction context
+            // Nested calls will see depth > 0 and use savepoints
+            transactionDepth++;
+
+            const result = await fn();
+
+            db.exec('COMMIT');
+            scheduleSave();
+
+            resolve(result);
+          } catch (error) {
+            try {
+              db.exec('ROLLBACK');
+            } catch {
+              // Ignore rollback errors
+            }
+
+            reject(error);
+          } finally {
+            transactionDepth--;
+          }
+        }
+
+        isProcessingQueue = false;
+      }
 
       const countPositionalPlaceholders = (sql) => {
         let count = 0, inString = false, stringChar = '';
@@ -691,12 +751,15 @@ SELECT * FROM users;</textarea>
         async transaction(fn) {
           ensureOpen();
 
+          // Check if we're nested inside another transaction
+          // If depth > 0, we're in a transaction context and should use savepoints
           const isNested = transactionDepth > 0;
-          transactionDepth++;
 
           if (isNested) {
+            // NESTED: Use savepoint for nested transaction
             const savepointName = `sp_${++savepointCounter}`;
             activeSavepoints.push(savepointName);
+            transactionDepth++;
 
             try {
               database.exec(`SAVEPOINT ${savepointName}`);
@@ -722,20 +785,21 @@ SELECT * FROM users;</textarea>
               throw error;
             }
           } else {
-            database.exec('BEGIN');
-            try {
-              const result = await fn();
-              database.exec('COMMIT');
-              transactionDepth--;
-              scheduleSave();
-              return result;
-            } catch (error) {
-              try {
-                database.exec('ROLLBACK');
-              } catch {}
-              transactionDepth--;
-              throw error;
-            }
+            // TOP-LEVEL: Add to queue and process
+            return new Promise((resolve, reject) => {
+              const id = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              transactionQueue.push({
+                id,
+                fn,
+                resolve,
+                reject,
+                enqueuedAt: Date.now()
+              });
+
+              // Schedule queue processing as a microtask (not synchronous)
+              // This ensures concurrent transaction() calls can complete before processing starts
+              Promise.resolve().then(() => processQueue());
+            });
           }
         },
 
@@ -907,6 +971,15 @@ SELECT * FROM users;</textarea>
 
         close() {
           if (closed) return;
+
+          // Reject all pending transactions
+          while (transactionQueue.length > 0) {
+            const item = transactionQueue.shift();
+            if (item) {
+              item.reject(new Error('Database closed with pending transactions'));
+            }
+          }
+
           if (autoSaveTimer) clearTimeout(autoSaveTimer);
           db.close();
           closed = true;
@@ -1847,6 +1920,215 @@ SELECT * FROM users;</textarea>
         }
       } catch (error) {
         output.textContent = `Error: ${error.message}`;
+        output.className = 'output error';
+      }
+    }
+
+    async function demoQueueConcurrent() {
+      const output = document.getElementById('queue-output');
+      try {
+        const db = await initDemoDb();
+
+        // Create test table
+        db.exec('CREATE TABLE IF NOT EXISTS queue_test (id INTEGER PRIMARY KEY, value TEXT, timestamp INTEGER)');
+        db.exec('DELETE FROM queue_test');
+
+        output.textContent = '⏳ Starting 5 concurrent transactions...\n';
+        output.className = 'output';
+
+        const startTime = Date.now();
+
+        // Run 5 transactions concurrently - will be automatically queued
+        const results = await Promise.all([
+          db.transaction(async () => {
+            db.run('INSERT INTO queue_test (value, timestamp) VALUES (?, ?)', ['Transaction 1', Date.now()]);
+            return 'T1 complete';
+          }),
+          db.transaction(async () => {
+            db.run('INSERT INTO queue_test (value, timestamp) VALUES (?, ?)', ['Transaction 2', Date.now()]);
+            return 'T2 complete';
+          }),
+          db.transaction(async () => {
+            db.run('INSERT INTO queue_test (value, timestamp) VALUES (?, ?)', ['Transaction 3', Date.now()]);
+            return 'T3 complete';
+          }),
+          db.transaction(async () => {
+            db.run('INSERT INTO queue_test (value, timestamp) VALUES (?, ?)', ['Transaction 4', Date.now()]);
+            return 'T4 complete';
+          }),
+          db.transaction(async () => {
+            db.run('INSERT INTO queue_test (value, timestamp) VALUES (?, ?)', ['Transaction 5', Date.now()]);
+            return 'T5 complete';
+          })
+        ]);
+
+        const elapsed = Date.now() - startTime;
+
+        // Verify all transactions completed
+        const count = db.get('SELECT COUNT(*) as cnt FROM queue_test');
+
+        output.textContent = `✅ Success!\n\n` +
+          `Results: ${results.join(', ')}\n` +
+          `Inserted: ${count.cnt} rows\n` +
+          `Time: ${elapsed}ms\n\n` +
+          `💡 All transactions queued automatically and executed serially!`;
+        output.className = 'output success';
+
+      } catch (error) {
+        output.textContent = `❌ Error: ${error.message}`;
+        output.className = 'output error';
+      }
+    }
+
+    async function demoQueueWithProgress() {
+      const output = document.getElementById('queue-output');
+      try {
+        const db = await initDemoDb();
+
+        db.exec('CREATE TABLE IF NOT EXISTS progress_test (id INTEGER PRIMARY KEY, step TEXT)');
+        db.exec('DELETE FROM progress_test');
+
+        let progress = [];
+
+        // Helper to update display
+        const updateDisplay = () => {
+          output.textContent = progress.join('\n');
+          output.className = 'output';
+        };
+
+        progress.push('⏳ Queueing 10 transactions...');
+        updateDisplay();
+
+        // Create 10 transactions with delays to show sequential execution
+        const promises = Array.from({ length: 10 }, (_, i) =>
+          db.transaction(async () => {
+            progress.push(`  ▶️ Transaction ${i + 1} executing...`);
+            updateDisplay();
+
+            // Simulate work
+            await new Promise(resolve => setTimeout(resolve, 50));
+            db.run('INSERT INTO progress_test (step) VALUES (?)', [`Step ${i + 1}`]);
+
+            progress.push(`  ✅ Transaction ${i + 1} complete`);
+            updateDisplay();
+
+            return i + 1;
+          })
+        );
+
+        await Promise.all(promises);
+
+        const count = db.get('SELECT COUNT(*) as cnt FROM progress_test');
+        progress.push(`\n✅ All ${count.cnt} transactions completed successfully!`);
+        progress.push(`💡 Each transaction waited for the previous to finish.`);
+        updateDisplay();
+        output.className = 'output success';
+
+      } catch (error) {
+        output.textContent = `❌ Error: ${error.message}`;
+        output.className = 'output error';
+      }
+    }
+
+    async function demoQueueNested() {
+      const output = document.getElementById('queue-output');
+      try {
+        const db = await initDemoDb();
+
+        db.exec('CREATE TABLE IF NOT EXISTS nested_test (id INTEGER PRIMARY KEY, type TEXT, value TEXT)');
+        db.exec('DELETE FROM nested_test');
+
+        output.textContent = '⏳ Running concurrent transactions with nesting...\n';
+        output.className = 'output';
+
+        // Run 3 concurrent transactions, each with nested transaction
+        const results = await Promise.all([
+          db.transaction(async () => {
+            db.run('INSERT INTO nested_test (type, value) VALUES (?, ?)', ['outer', 'T1-outer']);
+
+            // Nested transaction uses savepoint automatically
+            await db.transaction(async () => {
+              db.run('INSERT INTO nested_test (type, value) VALUES (?, ?)', ['inner', 'T1-inner']);
+            });
+
+            return 'T1 (outer + nested)';
+          }),
+          db.transaction(async () => {
+            db.run('INSERT INTO nested_test (type, value) VALUES (?, ?)', ['outer', 'T2-outer']);
+
+            await db.transaction(async () => {
+              db.run('INSERT INTO nested_test (type, value) VALUES (?, ?)', ['inner', 'T2-inner']);
+            });
+
+            return 'T2 (outer + nested)';
+          }),
+          db.transaction(async () => {
+            db.run('INSERT INTO nested_test (type, value) VALUES (?, ?)', ['outer', 'T3-outer']);
+
+            await db.transaction(async () => {
+              db.run('INSERT INTO nested_test (type, value) VALUES (?, ?)', ['inner', 'T3-inner']);
+            });
+
+            return 'T3 (outer + nested)';
+          })
+        ]);
+
+        const rows = db.all('SELECT * FROM nested_test ORDER BY id');
+
+        output.textContent = `✅ Success!\n\n` +
+          `Completed: ${results.join(', ')}\n` +
+          `Total rows inserted: ${rows.length}\n\n` +
+          `Breakdown:\n` +
+          rows.map(r => `  • ${r.type}: ${r.value}`).join('\n') + '\n\n' +
+          `💡 Concurrent transactions queued, nested ones used savepoints!`;
+        output.className = 'output success';
+
+      } catch (error) {
+        output.textContent = `❌ Error: ${error.message}`;
+        output.className = 'output error';
+      }
+    }
+
+    async function demoQueueStress() {
+      const output = document.getElementById('queue-output');
+      try {
+        const db = await initDemoDb();
+
+        db.exec('CREATE TABLE IF NOT EXISTS stress_test (id INTEGER PRIMARY KEY, txn_num INTEGER)');
+        db.exec('DELETE FROM stress_test');
+
+        output.textContent = '⏳ Starting stress test with 100 concurrent transactions...\n';
+        output.className = 'output';
+
+        const startTime = Date.now();
+
+        // Create 100 concurrent transactions
+        const promises = Array.from({ length: 100 }, (_, i) =>
+          db.transaction(async () => {
+            db.run('INSERT INTO stress_test (txn_num) VALUES (?)', [i]);
+            return i;
+          })
+        );
+
+        const results = await Promise.all(promises);
+        const elapsed = Date.now() - startTime;
+
+        const count = db.get('SELECT COUNT(*) as cnt FROM stress_test');
+        const min = db.get('SELECT MIN(txn_num) as min FROM stress_test');
+        const max = db.get('SELECT MAX(txn_num) as max FROM stress_test');
+
+        output.textContent = `✅ Stress Test Complete!\n\n` +
+          `Transactions: 100\n` +
+          `Successful: ${results.length}\n` +
+          `Rows inserted: ${count.cnt}\n` +
+          `Range: ${min.min} to ${max.max}\n` +
+          `Total time: ${elapsed}ms\n` +
+          `Avg per transaction: ${(elapsed / 100).toFixed(2)}ms\n\n` +
+          `💡 Transaction queue handled high concurrency without errors!`;
+        output.className = 'output success';
+
+      } catch (error) {
+        output.textContent = `❌ Error: ${error.message}`;
         output.className = 'output error';
       }
     }
