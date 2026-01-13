@@ -151,6 +151,17 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
   let savepointCounter = 0
   const activeSavepoints: string[] = []
 
+  // Transaction queue for concurrent transaction management
+  interface TransactionQueueItem {
+    id: string
+    fn: () => Promise<unknown>
+    resolve: (value: unknown) => void
+    reject: (error: unknown) => void
+    enqueuedAt: number
+  }
+  let transactionQueue: TransactionQueueItem[] = []
+  let isProcessingQueue = false
+
   // Auto-save setup
   const autoSave = options?.autoSave ?? (options?.persist ? true : false)
   const autoSaveDebounce = options?.autoSaveDebounce ?? 1000
@@ -183,6 +194,49 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     if (closed) {
       throw new Error('Database is closed')
     }
+  }
+
+  // Process queued transactions serially
+  async function processQueue(): Promise<void> {
+    // Guard: Only one processor runs at a time
+    if (isProcessingQueue) return
+    if (transactionQueue.length === 0) return
+
+    isProcessingQueue = true
+
+    while (transactionQueue.length > 0) {
+      const item = transactionQueue.shift()
+      if (!item) break
+
+      const { fn, resolve, reject } = item
+
+      try {
+        db.exec('BEGIN')
+
+        // Increment depth to track that we're in a transaction context
+        // Nested calls will see depth > 0 and use savepoints
+        transactionDepth++
+
+        const result = await fn()
+
+        db.exec('COMMIT')
+        scheduleSave()
+
+        resolve(result)
+      } catch (error) {
+        try {
+          db.exec('ROLLBACK')
+        } catch {
+          // Ignore rollback errors
+        }
+
+        reject(error)
+      } finally {
+        transactionDepth--
+      }
+    }
+
+    isProcessingQueue = false
   }
 
   // Count positional placeholders (?) in SQL
@@ -687,13 +741,15 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     async transaction<T>(fn: () => T | Promise<T>): Promise<T> {
       ensureOpen()
 
+      // Check if we're nested inside another transaction
+      // If depth > 0, we're in a transaction context and should use savepoints
       const isNested = transactionDepth > 0
-      transactionDepth++
 
       if (isNested) {
-        // Use savepoint for nested transaction
+        // NESTED: Use savepoint for nested transaction
         const savepointName = `sp_${String(++savepointCounter)}`
         activeSavepoints.push(savepointName)
+        transactionDepth++
 
         try {
           database.exec(`SAVEPOINT ${savepointName}`)
@@ -721,24 +777,21 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           throw error
         }
       } else {
-        // Top-level transaction
-        database.exec('BEGIN')
+        // TOP-LEVEL: Add to queue and process
+        return new Promise<T>((resolve, reject) => {
+          const id = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          transactionQueue.push({
+            id,
+            fn: fn as () => Promise<unknown>,
+            resolve: resolve as (value: unknown) => void,
+            reject,
+            enqueuedAt: Date.now()
+          })
 
-        try {
-          const result = await fn()
-          database.exec('COMMIT')
-          transactionDepth--
-          scheduleSave()
-          return result
-        } catch (error) {
-          try {
-            database.exec('ROLLBACK')
-          } catch {
-            // Ignore rollback errors
-          }
-          transactionDepth--
-          throw error
-        }
+          // Schedule queue processing as a microtask (not synchronous)
+          // This ensures concurrent transaction() calls can complete before processing starts
+          void Promise.resolve().then(() => processQueue())
+        })
       }
     },
 
@@ -1005,6 +1058,14 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     close(): void {
       if (closed) return
 
+      // Reject all pending transactions
+      while (transactionQueue.length > 0) {
+        const item = transactionQueue.shift()
+        if (item) {
+          item.reject(new Error('Database closed with pending transactions'))
+        }
+      }
+
       if (autoSaveTimer) {
         clearTimeout(autoSaveTimer)
       }
@@ -1163,9 +1224,16 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
       const ids: number[] = []
 
-      // Use manual transaction for synchronous operation
+      // Use manual transaction - bypass queue for synchronous operation
+      // Only safe because insertMany is synchronous and manages its own transaction
+      const wasInTransaction = transactionDepth > 0
+
       try {
-        database.exec('BEGIN TRANSACTION')
+        if (!wasInTransaction) {
+          db.exec('BEGIN')
+          transactionDepth++
+        }
+
         for (const row of rows) {
           // Fill in missing keys with undefined (will be inserted as NULL)
           const normalizedRow: Record<string, unknown> = {}
@@ -1177,9 +1245,21 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           const id = table.insert(normalizedRow)
           ids.push(id)
         }
-        database.exec('COMMIT')
+
+        if (!wasInTransaction) {
+          db.exec('COMMIT')
+          transactionDepth--
+          scheduleSave()
+        }
       } catch (error) {
-        database.exec('ROLLBACK')
+        if (!wasInTransaction) {
+          try {
+            db.exec('ROLLBACK')
+          } catch {
+            // Ignore rollback errors
+          }
+          transactionDepth--
+        }
         throw error
       }
 
