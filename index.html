@@ -1084,12 +1084,39 @@ SELECT * FROM users;</textarea>
           }
 
           const ids = [];
-          database.transaction(() => {
+
+          // Use manual transaction - bypass queue for synchronous operation
+          // Only safe because insertMany is synchronous and manages its own transaction
+          const wasInTransaction = transactionDepth > 0;
+
+          try {
+            if (!wasInTransaction) {
+              db.exec('BEGIN');
+              transactionDepth++;
+            }
+
             for (const row of rows) {
               const id = database.table(tableName).insert(row);
               ids.push(id);
             }
-          });
+
+            if (!wasInTransaction) {
+              db.exec('COMMIT');
+              transactionDepth--;
+              scheduleSave();
+            }
+          } catch (error) {
+            if (!wasInTransaction) {
+              try {
+                db.exec('ROLLBACK');
+              } catch {
+                // Ignore rollback errors
+              }
+              transactionDepth--;
+            }
+            throw error;
+          }
+
           return ids;
         }
       };

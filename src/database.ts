@@ -1224,9 +1224,16 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
       const ids: number[] = []
 
-      // Use manual transaction for synchronous operation
+      // Use manual transaction - bypass queue for synchronous operation
+      // Only safe because insertMany is synchronous and manages its own transaction
+      const wasInTransaction = transactionDepth > 0
+
       try {
-        database.exec('BEGIN TRANSACTION')
+        if (!wasInTransaction) {
+          db.exec('BEGIN')
+          transactionDepth++
+        }
+
         for (const row of rows) {
           // Fill in missing keys with undefined (will be inserted as NULL)
           const normalizedRow: Record<string, unknown> = {}
@@ -1238,9 +1245,21 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           const id = table.insert(normalizedRow)
           ids.push(id)
         }
-        database.exec('COMMIT')
+
+        if (!wasInTransaction) {
+          db.exec('COMMIT')
+          transactionDepth--
+          scheduleSave()
+        }
       } catch (error) {
-        database.exec('ROLLBACK')
+        if (!wasInTransaction) {
+          try {
+            db.exec('ROLLBACK')
+          } catch {
+            // Ignore rollback errors
+          }
+          transactionDepth--
+        }
         throw error
       }
 
