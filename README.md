@@ -51,7 +51,8 @@ console.log(user?.name) // "Alice"
 - **Schema Migrations** - Versioned migrations with up/down support
 - **Type-Safe Queries** - Generic query methods with TypeScript inference
 - **Auto-Persistence** - Optional auto-save to IndexedDB or localStorage
-- **Transaction Support** - ACID transactions with automatic rollback
+- **Transaction Queue** - Automatic handling of concurrent transactions without savepoint conflicts
+- **Transaction Support** - ACID transactions with automatic rollback and nested transaction support
 - **Import/Export** - Save database to file, load from file
 - **Table Helpers** - Convenient CRUD operations for common patterns
 - **Zero Dependencies** - Only requires sql.js as a peer dependency
@@ -138,9 +139,56 @@ Execute a function within a transaction. Automatically rolls back on error.
 ```typescript
 await db.transaction(() => {
   db.run('INSERT INTO orders (user_id, total) VALUES (?, ?)', [userId, 100])
-  db.run('UPDATE inventory SET quantity = quantity - 1 WHERE id = ?', [productId])
+  db.run('UPDATE inventory SET quantity = quantity - 1 WHERE id = ?)', [productId])
 })
 ```
+
+**Concurrent Transactions:**
+
+The library automatically handles concurrent transactions through an internal queue, eliminating the need to worry about savepoint conflicts or transaction serialization:
+
+```typescript
+// These concurrent transactions are automatically queued and executed serially
+const results = await Promise.all([
+  db.transaction(async () => {
+    db.run('INSERT INTO users (name) VALUES (?)', ['Alice'])
+    return 'Alice added'
+  }),
+  db.transaction(async () => {
+    db.run('INSERT INTO users (name) VALUES (?)', ['Bob'])
+    return 'Bob added'
+  }),
+  db.transaction(async () => {
+    db.run('INSERT INTO users (name) VALUES (?)', ['Charlie'])
+    return 'Charlie added'
+  })
+])
+// Results: ['Alice added', 'Bob added', 'Charlie added']
+// All transactions execute serially and safely, maintaining ACID properties
+```
+
+**Nested Transactions:**
+
+Nested transactions automatically use SAVEPOINTs for proper isolation:
+
+```typescript
+await db.transaction(async () => {
+  db.run('INSERT INTO orders (id, total) VALUES (?, ?)', [1, 100])
+
+  // Nested transaction uses SAVEPOINT internally
+  await db.transaction(async () => {
+    db.run('INSERT INTO order_items (order_id, product_id) VALUES (?, ?)', [1, 42])
+  })
+
+  db.run('UPDATE orders SET status = ? WHERE id = ?', ['completed', 1])
+})
+```
+
+**Benefits:**
+- **No Savepoint Conflicts**: Concurrent top-level transactions are automatically queued
+- **Proper Isolation**: Uncommitted changes are not visible outside transactions
+- **ACID Guarantees**: Full atomicity, consistency, isolation, and durability
+- **Error Handling**: Failed transactions automatically rollback without affecting others
 
 ### `db.migrate(migrations)`
 
