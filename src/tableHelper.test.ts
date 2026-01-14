@@ -576,3 +576,160 @@ describe('table.all()', () => {
     // Order is not guaranteed - just verify all rows are present
   })
 })
+
+describe('Security: SQL Injection prevention', () => {
+  let db: Database
+
+  beforeEach(async () => {
+    db = await createDatabase()
+    db.exec(`
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+      )
+    `)
+  })
+
+  afterEach(() => {
+    db.close()
+  })
+
+  it('rejects malicious table names with SQL injection attempts', () => {
+    const users = db.table('users')
+    users.insert({ name: 'Alice' })
+
+    // Malicious table name - should be quoted and treated as literal
+    const maliciousTable = db.table('users; DROP TABLE users; --')
+    // This should fail because the table doesn't exist (name is quoted)
+    expect(() => maliciousTable.all()).toThrow()
+
+    // Original table should still exist
+    expect(users.all()).toHaveLength(1)
+  })
+
+  it('safely handles column names with special SQL characters', () => {
+    db.exec(`CREATE TABLE test (id INTEGER PRIMARY KEY AUTOINCREMENT, "weird;col" TEXT, "another--col" TEXT)`)
+    const table = db.table('test')
+
+    // These column names have SQL comment syntax but should be treated as literals
+    const id = table.insert({ 'weird;col': 'value1', 'another--col': 'value2' })
+    expect(id).toBeGreaterThan(0)
+
+    const row = table.find(id)
+    expect(row).toMatchObject({ 'weird;col': 'value1', 'another--col': 'value2' })
+  })
+
+  it('handles table names containing quotes safely', () => {
+    db.exec(`CREATE TABLE "table""with""quotes" (id INTEGER PRIMARY KEY, value TEXT)`)
+    const table = db.table('table"with"quotes')
+
+    const id = table.insert({ value: 'test' })
+    expect(id).toBeGreaterThan(0)
+    expect(table.find(id)).toMatchObject({ value: 'test' })
+  })
+
+  it('rejects null bytes in table names', () => {
+    expect(() => {
+      db.table('users\0malicious')
+    }).toThrow(/null byte/)
+  })
+
+  it('safely handles WHERE conditions with special characters', () => {
+    db.exec(`CREATE TABLE test (id INTEGER PRIMARY KEY, "col;test" TEXT)`)
+    const table = db.table('test')
+
+    table.insert({ 'col;test': 'value1' })
+    table.insert({ 'col;test': 'value2' })
+
+    const results = table.where({ 'col;test': 'value1' })
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({ 'col;test': 'value1' })
+  })
+})
+
+describe('Security: Prototype pollution prevention', () => {
+  let db: Database
+
+  beforeEach(async () => {
+    db = await createDatabase()
+    db.exec(`
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        constructor TEXT,
+        prototype TEXT
+      )
+    `)
+  })
+
+  afterEach(() => {
+    db.close()
+  })
+
+  it('rejects constructor as column name in insert', () => {
+    const users = db.table('users')
+    expect(() => {
+      users.insert({ name: 'Alice', constructor: 'polluted' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects prototype as column name in insert', () => {
+    const users = db.table('users')
+    expect(() => {
+      users.insert({ name: 'Alice', prototype: 'polluted' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects constructor in where conditions', () => {
+    const users = db.table('users')
+    expect(() => {
+      users.where({ constructor: 'value' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects prototype in where conditions', () => {
+    const users = db.table('users')
+    expect(() => {
+      users.where({ prototype: 'value' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects constructor in update data', () => {
+    const users = db.table('users')
+    const id = users.insert({ name: 'Alice' })
+    expect(() => {
+      users.update(id, { constructor: 'polluted' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects prototype in update data', () => {
+    const users = db.table('users')
+    const id = users.insert({ name: 'Alice' })
+    expect(() => {
+      users.update(id, { prototype: 'polluted' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects constructor in count conditions', () => {
+    const users = db.table('users')
+    expect(() => {
+      users.count({ constructor: 'value' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects prototype in count conditions', () => {
+    const users = db.table('users')
+    expect(() => {
+      users.count({ prototype: 'value' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('does not pollute Object.prototype after operations', () => {
+    const users = db.table('users')
+    users.insert({ name: 'Alice' })
+
+    // Verify Object.prototype was not polluted
+    expect((({} as any).polluted)).toBeUndefined()
+    expect((({} as any).__proto__.polluted)).toBeUndefined()
+  })
+})

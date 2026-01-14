@@ -706,3 +706,75 @@ describe('db.all<T>(sql, params?)', () => {
     })
   })
 })
+
+describe('Security: Prototype pollution in named parameters', () => {
+  let db: Database
+
+  beforeEach(async () => {
+    db = await createDatabase()
+    db.exec(`
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        age INTEGER
+      )
+    `)
+    db.run('INSERT INTO users (name, age) VALUES (?, ?)', ['Alice', 30])
+  })
+
+  afterEach(() => {
+    db.close()
+  })
+
+  it('rejects constructor as parameter name in run()', () => {
+    expect(() => {
+      db.run('INSERT INTO users (name) VALUES (:name)', { name: 'Bob', constructor: 'polluted' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects prototype as parameter name in run()', () => {
+    expect(() => {
+      db.run('INSERT INTO users (name) VALUES (:name)', { name: 'Bob', prototype: 'polluted' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects constructor as parameter name in get()', () => {
+    expect(() => {
+      db.get('SELECT * FROM users WHERE name = :name', { name: 'Alice', constructor: 'polluted' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects prototype as parameter name in get()', () => {
+    expect(() => {
+      db.get('SELECT * FROM users WHERE name = :name', { name: 'Alice', prototype: 'polluted' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects constructor as parameter name in all()', () => {
+    expect(() => {
+      db.all('SELECT * FROM users WHERE age > :age', { age: 20, constructor: 'polluted' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('rejects prototype as parameter name in all()', () => {
+    expect(() => {
+      db.all('SELECT * FROM users WHERE age > :age', { age: 20, prototype: 'polluted' } as any)
+    }).toThrow(/not allowed/)
+  })
+
+  it('does not pollute Object.prototype after query with object params', () => {
+    // Execute a query with named parameters
+    db.run('INSERT INTO users (name, age) VALUES (:name, :age)', { name: 'Bob', age: 25 })
+
+    // Verify Object.prototype was not polluted
+    expect((({} as any).polluted)).toBeUndefined()
+    expect((({} as any).__proto__.polluted)).toBeUndefined()
+  })
+
+  it('accepts legitimate parameter names that are not dangerous', () => {
+    // These should work fine
+    db.run('INSERT INTO users (name, age) VALUES (:name, :age)', { name: 'Bob', age: 25 })
+    const user = db.get('SELECT * FROM users WHERE name = :name', { name: 'Bob' })
+    expect(user).toMatchObject({ name: 'Bob', age: 25 })
+  })
+})
