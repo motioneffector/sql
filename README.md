@@ -1,6 +1,6 @@
 # @motioneffector/sql
 
-A lightweight TypeScript wrapper for SQL.js that brings SQLite to the browser with migrations, persistence, and full type safety.
+A lightweight TypeScript wrapper for SQL.js with migrations, persistence, and full type safety.
 
 [![npm version](https://img.shields.io/npm/v/@motioneffector/sql.svg)](https://www.npmjs.com/package/@motioneffector/sql)
 [![license](https://img.shields.io/npm/l/@motioneffector/sql.svg)](https://github.com/motioneffector/sql/blob/main/LICENSE)
