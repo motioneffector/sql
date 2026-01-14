@@ -239,6 +239,20 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     isProcessingQueue = false
   }
 
+  // Validate and quote SQL identifier (table/column name)
+  const quoteIdentifier = (identifier: string): string => {
+    // Reject dangerous patterns
+    if (!identifier || identifier.trim() === '') {
+      throw new SqlError('Identifier cannot be empty')
+    }
+    if (identifier.includes('\0')) {
+      throw new SqlError('Identifier cannot contain null bytes')
+    }
+    // Quote with double quotes and escape any internal double quotes
+    // This is the SQLite standard for identifiers
+    return `"${identifier.replace(/"/g, '""')}"`
+  }
+
   // Count positional placeholders (?) in SQL
   const countPositionalPlaceholders = (sql: string): number => {
     // Simple count - count ? that are not in string literals
@@ -341,16 +355,29 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     }
   }
 
+  // Forbidden keys that could lead to prototype pollution
+  const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
   // Convert parameters to SQL.js format
   const convertParams = (params?: ParamArray | ParamObject): unknown[] | Record<string, unknown> | undefined => {
     if (!params) return undefined
     if (Array.isArray(params)) {
       return params.map(convertValue)
     }
+    // Check for dangerous keys first (before Object.entries filters them)
+    for (const key in params) {
+      if (FORBIDDEN_KEYS.has(key)) {
+        throw new SqlError(`Parameter name "${key}" is not allowed`)
+      }
+    }
+
     // Named parameters - SQL.js needs keys with prefix included
     // Convert { name: 'value' } to { ':name': 'value', '$name': 'value', '@name': 'value' }
     const converted: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(params)) {
+      // Only process own properties
+      if (!Object.hasOwn(params, key)) continue
+
       const convertedValue = convertValue(value)
       // Add all three prefix variants so any style works
       converted[`:${key}`] = convertedValue
@@ -805,101 +832,138 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       if (!tableName || tableName.trim() === '') {
         throw new Error('tableName cannot be empty')
       }
+      if (tableName.includes('\0')) {
+        throw new SqlError('Identifier cannot contain null bytes')
+      }
 
       const primaryKey = options?.primaryKey ?? 'id'
 
       return {
         insert(data: Partial<T>): number {
-          // Validate column names
-          for (const key of Object.keys(data)) {
-            if (key.includes(';') || key.includes('--') || key.includes('/*')) {
-              throw new Error(`Invalid column name: ${key}`)
+          // Check for dangerous keys first (before Object.entries filters them)
+          for (const key in data) {
+            if (FORBIDDEN_KEYS.has(key)) {
+              throw new SqlError(`Column name "${key}" is not allowed`)
             }
           }
 
-          const entries = Object.entries(data).filter(([_, value]) => value !== undefined) as Array<[string, unknown]>
-          const columns = entries.map(([key]) => key)
+          const entries = Object.entries(data).filter(([key, value]) => {
+            // Only process own properties and defined values
+            return Object.hasOwn(data, key) && value !== undefined
+          }) as Array<[string, unknown]>
+          const columns = entries.map(([key]) => quoteIdentifier(key))
           const values = entries.map(([_, value]) => value)
           const placeholders = columns.map(() => '?').join(', ')
 
-          const sql = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`
+          const sql = `INSERT INTO ${quoteIdentifier(tableName)} (${columns.join(', ')}) VALUES (${placeholders})`
           const result = database.run(sql, values as ParamArray)
           return result.lastInsertRowId
         },
 
         find(id: unknown, options?: { key?: string }): T | undefined {
           const keyColumn = options?.key ?? primaryKey
-          return database.get<T>(`SELECT * FROM ${tableName} WHERE ${keyColumn} = ?`, [id])
+          return database.get<T>(`SELECT * FROM ${quoteIdentifier(tableName)} WHERE ${quoteIdentifier(keyColumn)} = ?`, [id])
         },
 
         where(conditions: Partial<T>): T[] {
           if (Object.keys(conditions).length === 0) {
-            return database.all<T>(`SELECT * FROM ${tableName}`)
+            return database.all<T>(`SELECT * FROM ${quoteIdentifier(tableName)}`)
+          }
+
+          // Check for dangerous keys first (before Object.entries filters them)
+          for (const key in conditions) {
+            if (FORBIDDEN_KEYS.has(key)) {
+              throw new SqlError(`Column name "${key}" is not allowed`)
+            }
           }
 
           const clauses: string[] = []
           const values: unknown[] = []
 
           for (const [key, value] of Object.entries(conditions)) {
+            // Only process own properties
+            if (!Object.hasOwn(conditions, key)) continue
+
             if (value === null) {
-              clauses.push(`${key} IS NULL`)
+              clauses.push(`${quoteIdentifier(key)} IS NULL`)
             } else {
-              clauses.push(`${key} = ?`)
+              clauses.push(`${quoteIdentifier(key)} = ?`)
               values.push(value)
             }
           }
 
-          const sql = `SELECT * FROM ${tableName} WHERE ${clauses.join(' AND ')}`
+          const sql = `SELECT * FROM ${quoteIdentifier(tableName)} WHERE ${clauses.join(' AND ')}`
           return database.all<T>(sql, values)
         },
 
         update(id: unknown, data: Partial<T>, options?: { key?: string }): number {
           const keyColumn = options?.key ?? primaryKey
-          const entries = Object.entries(data).filter(([_, value]) => value !== undefined) as Array<[string, unknown]>
+
+          // Check for dangerous keys first (before Object.entries filters them)
+          for (const key in data) {
+            if (FORBIDDEN_KEYS.has(key)) {
+              throw new SqlError(`Column name "${key}" is not allowed`)
+            }
+          }
+
+          const entries = Object.entries(data).filter(([key, value]) => {
+            // Only process own properties and defined values
+            return Object.hasOwn(data, key) && value !== undefined
+          }) as Array<[string, unknown]>
 
           if (entries.length === 0) {
             return 0
           }
 
-          const setClauses = entries.map(([key]) => `${key} = ?`)
+          const setClauses = entries.map(([key]) => `${quoteIdentifier(key)} = ?`)
           const values = [...entries.map(([_, value]) => value), id]
 
-          const sql = `UPDATE ${tableName} SET ${setClauses.join(', ')} WHERE ${keyColumn} = ?`
+          const sql = `UPDATE ${quoteIdentifier(tableName)} SET ${setClauses.join(', ')} WHERE ${quoteIdentifier(keyColumn)} = ?`
           const result = database.run(sql, values as ParamArray)
           return result.changes
         },
 
         delete(id: unknown, options?: { key?: string }): number {
           const keyColumn = options?.key ?? primaryKey
-          const result = database.run(`DELETE FROM ${tableName} WHERE ${keyColumn} = ?`, [id])
+          const result = database.run(`DELETE FROM ${quoteIdentifier(tableName)} WHERE ${quoteIdentifier(keyColumn)} = ?`, [id])
           return result.changes
         },
 
         count(conditions?: Partial<T>): number {
           if (!conditions || Object.keys(conditions).length === 0) {
-            const result = database.get<{ count: number }>(`SELECT COUNT(*) as count FROM ${tableName}`)
+            const result = database.get<{ count: number }>(`SELECT COUNT(*) as count FROM ${quoteIdentifier(tableName)}`)
             return result?.count ?? 0
+          }
+
+          // Check for dangerous keys first (before Object.entries filters them)
+          for (const key in conditions) {
+            if (FORBIDDEN_KEYS.has(key)) {
+              throw new SqlError(`Column name "${key}" is not allowed`)
+            }
           }
 
           const clauses: string[] = []
           const values: unknown[] = []
 
           for (const [key, value] of Object.entries(conditions)) {
+            // Only process own properties
+            if (!Object.hasOwn(conditions, key)) continue
+
             if (value === null) {
-              clauses.push(`${key} IS NULL`)
+              clauses.push(`${quoteIdentifier(key)} IS NULL`)
             } else {
-              clauses.push(`${key} = ?`)
+              clauses.push(`${quoteIdentifier(key)} = ?`)
               values.push(value)
             }
           }
 
-          const sql = `SELECT COUNT(*) as count FROM ${tableName} WHERE ${clauses.join(' AND ')}`
+          const sql = `SELECT COUNT(*) as count FROM ${quoteIdentifier(tableName)} WHERE ${clauses.join(' AND ')}`
           const result = database.get<{ count: number }>(sql, values)
           return result?.count ?? 0
         },
 
         all(): T[] {
-          return database.all<T>(`SELECT * FROM ${tableName}`)
+          return database.all<T>(`SELECT * FROM ${quoteIdentifier(tableName)}`)
         },
       }
     },
@@ -985,7 +1049,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           notnull: number
           dflt_value: unknown
           pk: number
-        }>(`PRAGMA table_info(${tableName})`)
+        }>(`PRAGMA table_info(${quoteIdentifier(tableName)})`)
         return info.map(col => ({
           name: col.name,
           type: col.type,
@@ -1090,7 +1154,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       ensureOpen()
       const tables = database.getTables()
       for (const table of tables) {
-        database.exec(`DELETE FROM ${table}`)
+        database.exec(`DELETE FROM ${quoteIdentifier(table)}`)
       }
       // Reset AUTOINCREMENT counters (only if table exists)
       try {
