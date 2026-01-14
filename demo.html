@@ -1,0 +1,2999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@motioneffector/sql - Demo</title>
+  <style>
+/* ============================================
+   RESET & BASE
+   ============================================ */
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #e6edf3;
+  background: #0d1117;
+  min-height: 100vh;
+}
+
+/* ============================================
+   CSS VARIABLES
+   ============================================ */
+
+:root {
+  /* Backgrounds */
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --bg-hover: #30363d;
+
+  /* Borders */
+  --border-default: #30363d;
+  --border-muted: #21262d;
+
+  /* Text */
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --text-link: #58a6ff;
+
+  /* Accents */
+  --accent-blue: #1f6feb;
+  --accent-blue-hover: #388bfd;
+  --accent-green: #238636;
+  --accent-green-bright: #3fb950;
+  --accent-red: #da3633;
+  --accent-red-bright: #f85149;
+  --accent-yellow: #d29922;
+  --accent-yellow-bright: #e3b341;
+  --accent-purple: #8957e5;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Typography */
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5rem;
+  --font-size-xxl: 2rem;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.4);
+
+  /* Transitions */
+  --transition-fast: 0.1s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+}
+
+/* ============================================
+   LAYOUT
+   ============================================ */
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-xl);
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+
+.header {
+  margin-bottom: var(--space-xxl);
+  padding-bottom: var(--space-xl);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.header-title {
+  font-size: var(--font-size-xxl);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.header-description {
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-lg);
+}
+
+.header-links {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.header-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--text-link);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.header-link:hover {
+  background: var(--bg-tertiary);
+  text-decoration: underline;
+}
+
+/* ============================================
+   EXHIBITS
+   ============================================ */
+
+.exhibits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxl);
+}
+
+.exhibit {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.exhibit-header {
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.exhibit-title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+}
+
+.exhibit-description {
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+}
+
+.exhibit-content {
+  padding: var(--space-lg);
+}
+
+.exhibit-interactive {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-lg);
+  min-height: 200px;
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.exhibit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-lg);
+}
+
+.exhibit-state {
+  padding: var(--space-md);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.exhibit-state-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--space-sm);
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent-blue);
+  color: white;
+  border-color: var(--accent-blue);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-blue-hover);
+  border-color: var(--accent-blue-hover);
+}
+
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.btn-danger {
+  background: var(--accent-red);
+  color: white;
+  border-color: var(--accent-red);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--accent-red-bright);
+}
+
+.btn-success {
+  background: var(--accent-green);
+  color: white;
+  border-color: var(--accent-green);
+}
+
+.btn-success:hover:not(:disabled) {
+  background: var(--accent-green-bright);
+}
+
+.btn-small {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-xs);
+}
+
+/* ============================================
+   INPUTS
+   ============================================ */
+
+.input {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.input-mono {
+  font-family: var(--font-mono);
+}
+
+select.input {
+  cursor: pointer;
+}
+
+textarea.input {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+/* ============================================
+   TOGGLE
+   ============================================ */
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--bg-hover);
+  border-radius: 11px;
+  transition: background var(--transition-normal);
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: var(--text-primary);
+  border-radius: 50%;
+  transition: transform var(--transition-normal);
+}
+
+.toggle input {
+  display: none;
+}
+
+.toggle input:checked + .toggle-switch {
+  background: var(--accent-blue);
+}
+
+.toggle input:checked + .toggle-switch::after {
+  transform: translateX(18px);
+}
+
+.toggle-label {
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   TAGS / BADGES
+   ============================================ */
+
+.tag {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.tag-blue {
+  background: rgba(31, 111, 235, 0.2);
+  color: var(--accent-blue-hover);
+}
+
+.tag-green {
+  background: rgba(35, 134, 54, 0.2);
+  color: var(--accent-green-bright);
+}
+
+.tag-red {
+  background: rgba(218, 54, 51, 0.2);
+  color: var(--accent-red-bright);
+}
+
+.tag-yellow {
+  background: rgba(210, 153, 34, 0.2);
+  color: var(--accent-yellow-bright);
+}
+
+.tag-purple {
+  background: rgba(137, 87, 229, 0.2);
+  color: var(--accent-purple);
+}
+
+/* ============================================
+   TEST RUNNER
+   ============================================ */
+
+.test-runner {
+  margin-top: var(--space-xxl);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.test-runner-header {
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.test-runner-title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+}
+
+.test-runner-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.test-runner-content {
+  padding: var(--space-lg);
+}
+
+.test-progress {
+  margin-bottom: var(--space-lg);
+}
+
+.test-progress-bar {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: var(--space-sm);
+}
+
+.test-progress-fill {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 4px;
+  transition: width var(--transition-fast);
+  width: 0%;
+}
+
+.test-progress-fill.success {
+  background: var(--accent-green);
+}
+
+.test-progress-fill.failure {
+  background: var(--accent-red);
+}
+
+.test-progress-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.test-output {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.test-output-empty {
+  padding: var(--space-xl);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.test-item {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-muted);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.test-item:last-child {
+  border-bottom: none;
+}
+
+.test-icon {
+  flex-shrink: 0;
+  font-size: var(--font-size-md);
+}
+
+.test-icon.pass {
+  color: var(--accent-green-bright);
+}
+
+.test-icon.fail {
+  color: var(--accent-red-bright);
+}
+
+.test-name {
+  color: var(--text-primary);
+}
+
+.test-error {
+  color: var(--accent-red-bright);
+  font-size: var(--font-size-xs);
+  margin-top: var(--space-xs);
+}
+
+.test-summary {
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  display: flex;
+  gap: var(--space-lg);
+}
+
+.test-summary-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.test-summary-item.passed {
+  color: var(--accent-green-bright);
+}
+
+.test-summary-item.failed {
+  color: var(--accent-red-bright);
+}
+
+.test-summary-item.skipped {
+  color: var(--text-muted);
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+.text-success { color: var(--accent-green-bright); }
+.text-error { color: var(--accent-red-bright); }
+.text-warning { color: var(--accent-yellow-bright); }
+
+.font-mono { font-family: var(--font-mono); }
+
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-xs { gap: var(--space-xs); }
+.gap-sm { gap: var(--space-sm); }
+.gap-md { gap: var(--space-md); }
+.gap-lg { gap: var(--space-lg); }
+
+.mt-sm { margin-top: var(--space-sm); }
+.mt-md { margin-top: var(--space-md); }
+.mt-lg { margin-top: var(--space-lg); }
+.mb-sm { margin-bottom: var(--space-sm); }
+.mb-md { margin-bottom: var(--space-md); }
+.mb-lg { margin-bottom: var(--space-lg); }
+
+.p-sm { padding: var(--space-sm); }
+.p-md { padding: var(--space-md); }
+.p-lg { padding: var(--space-lg); }
+
+.hidden { display: none; }
+
+/* ============================================
+   SCROLLBAR
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-default);
+}
+
+/* ============================================
+   EXHIBIT-SPECIFIC STYLES
+   ============================================ */
+
+/* Live Database */
+.live-tables {
+  display: flex;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-lg);
+}
+
+.live-table {
+  flex: 1;
+  min-width: 280px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.live-table-header {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-default);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.live-table-count {
+  font-weight: normal;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.live-table-body {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.live-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.live-table th,
+.live-table td {
+  padding: var(--space-xs) var(--space-sm);
+  text-align: left;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.live-table th {
+  background: var(--bg-tertiary);
+  font-weight: 500;
+  color: var(--text-secondary);
+  position: sticky;
+  top: 0;
+}
+
+.live-table tr:last-child td {
+  border-bottom: none;
+}
+
+.live-table tr.highlight {
+  animation: rowHighlight 0.5s ease;
+}
+
+.live-table tr.insert-anim {
+  animation: rowSlideIn 0.3s ease;
+}
+
+.live-table tr.delete-anim {
+  animation: rowFadeOut 0.2s ease forwards;
+}
+
+.live-table td.update-anim {
+  animation: cellFlash 0.3s ease;
+}
+
+@keyframes rowHighlight {
+  0%, 100% { background: transparent; }
+  50% { background: rgba(31, 111, 235, 0.3); }
+}
+
+@keyframes rowSlideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rowFadeOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.95); }
+}
+
+@keyframes cellFlash {
+  0%, 100% { background: transparent; }
+  50% { background: rgba(227, 179, 65, 0.4); }
+}
+
+.sql-area {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+
+.sql-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sql-editor {
+  width: 100%;
+  height: 120px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  color: var(--text-primary);
+  resize: vertical;
+}
+
+.sql-editor:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.sql-result {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  min-height: 120px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.sql-result-error {
+  color: var(--accent-red-bright);
+}
+
+.sql-result-success {
+  color: var(--accent-green-bright);
+}
+
+/* Data Grid */
+.data-grid-container {
+  overflow-x: auto;
+}
+
+.data-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.data-grid th,
+.data-grid td {
+  padding: var(--space-sm);
+  border: 1px solid var(--border-default);
+  text-align: left;
+}
+
+.data-grid th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.data-grid th:hover {
+  background: var(--bg-hover);
+}
+
+.data-grid td {
+  background: var(--bg-secondary);
+}
+
+.data-grid td[contenteditable="true"]:focus {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: -2px;
+}
+
+.data-grid tr.editing td {
+  background: rgba(31, 111, 235, 0.1);
+}
+
+.data-grid td.cell-success {
+  animation: cellSuccess 0.3s ease;
+}
+
+.data-grid td.cell-error {
+  animation: cellError 0.3s ease;
+}
+
+.data-grid tr.row-delete {
+  animation: rowShrink 0.2s ease forwards;
+}
+
+@keyframes cellSuccess {
+  0%, 100% { background: var(--bg-secondary); }
+  50% { background: rgba(63, 185, 80, 0.3); }
+}
+
+@keyframes cellError {
+  0%, 20%, 40%, 60%, 80%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+}
+
+@keyframes rowShrink {
+  from { opacity: 1; transform: scaleY(1); }
+  to { opacity: 0; transform: scaleY(0); height: 0; padding: 0; }
+}
+
+.trash-zone {
+  margin-top: var(--space-lg);
+  padding: var(--space-lg);
+  border: 2px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  color: var(--text-muted);
+  transition: all var(--transition-normal);
+}
+
+.trash-zone.drag-over {
+  border-color: var(--accent-red);
+  background: rgba(218, 54, 51, 0.1);
+  color: var(--accent-red-bright);
+}
+
+/* Transaction Visualizer */
+.transaction-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: var(--space-lg);
+}
+
+.transaction-timeline {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  min-height: 300px;
+}
+
+.timeline-container {
+  border: 2px dashed var(--border-muted);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  display: none;
+}
+
+.timeline-container.active {
+  display: block;
+  border-color: var(--accent-yellow);
+  background: rgba(210, 153, 34, 0.05);
+}
+
+.timeline-container.committed {
+  border-color: var(--accent-green);
+  background: rgba(35, 134, 54, 0.05);
+}
+
+.timeline-container.rolled-back {
+  border-color: var(--accent-red);
+  background: rgba(218, 54, 51, 0.05);
+}
+
+.timeline-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: var(--space-sm);
+}
+
+.operation-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  animation: cardSlideIn 0.2s ease;
+}
+
+@keyframes cardSlideIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.operation-card.pending {
+  border-left: 3px solid var(--accent-yellow);
+}
+
+.operation-card.committed {
+  border-left: 3px solid var(--accent-green);
+  animation: cardCommit 0.3s ease;
+}
+
+.operation-card.rolled-back {
+  border-left: 3px solid var(--accent-red);
+  animation: cardRollback 0.3s ease forwards;
+}
+
+@keyframes cardCommit {
+  0%, 100% { background: var(--bg-tertiary); }
+  50% { background: rgba(35, 134, 54, 0.2); }
+}
+
+@keyframes cardRollback {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.9); }
+}
+
+.operation-icon {
+  font-size: var(--font-size-lg);
+}
+
+.account-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.account-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.account-name {
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+}
+
+.account-balance {
+  font-size: var(--font-size-xl);
+  font-family: var(--font-mono);
+  color: var(--accent-green-bright);
+  transition: all var(--transition-normal);
+}
+
+.account-balance.changing {
+  color: var(--accent-yellow-bright);
+}
+
+.account-balance.rolling-back {
+  animation: balanceRollback 0.4s ease;
+}
+
+@keyframes balanceRollback {
+  0%, 100% { color: var(--accent-green-bright); }
+  50% { color: var(--accent-red-bright); transform: scale(1.1); }
+}
+
+.transaction-status {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-xs);
+  font-size: var(--font-size-sm);
+}
+
+.status-label {
+  color: var(--text-secondary);
+}
+
+.status-value {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.status-value.active {
+  color: var(--accent-green-bright);
+}
+
+/* Persistence Proof */
+.persistence-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: var(--space-lg);
+}
+
+.notes-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.notes-header {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.notes-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.note-item {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-muted);
+  font-size: var(--font-size-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.note-item:last-child {
+  border-bottom: none;
+}
+
+.note-content {
+  flex: 1;
+}
+
+.note-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: var(--space-xs);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.note-item:hover .note-delete {
+  opacity: 1;
+}
+
+.note-delete:hover {
+  color: var(--accent-red-bright);
+}
+
+.storage-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.storage-info {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.storage-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.storage-key {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-bottom: var(--space-sm);
+}
+
+.storage-bar {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: var(--space-sm);
+}
+
+.storage-bar-fill {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 4px;
+  transition: width var(--transition-normal);
+}
+
+.storage-size {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.storage-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+  color: var(--accent-green-bright);
+}
+
+.storage-status.dirty {
+  color: var(--accent-yellow-bright);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-dot.pulsing {
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.proof-section {
+  margin-top: var(--space-lg);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+.proof-title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  margin-bottom: var(--space-md);
+  text-align: center;
+}
+
+.proof-steps {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin-bottom: var(--space-lg);
+  gap: var(--space-md);
+}
+
+.proof-step {
+  text-align: center;
+  padding: var(--space-md);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  flex: 1;
+  transition: all var(--transition-normal);
+}
+
+.proof-step.active {
+  border-color: var(--accent-blue);
+  background: rgba(31, 111, 235, 0.1);
+}
+
+.proof-step.destroyed {
+  border-color: var(--accent-red);
+  background: rgba(218, 54, 51, 0.1);
+}
+
+.proof-step.restored {
+  border-color: var(--accent-green);
+  background: rgba(35, 134, 54, 0.1);
+}
+
+.proof-step-icon {
+  font-size: var(--font-size-xxl);
+  margin-bottom: var(--space-xs);
+}
+
+.proof-step-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.proof-arrow {
+  color: var(--text-muted);
+  font-size: var(--font-size-xl);
+}
+
+.export-section {
+  margin-top: var(--space-lg);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+.export-title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  margin-bottom: var(--space-md);
+}
+
+.export-buttons {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.drop-zone {
+  border: 2px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-xl);
+  text-align: center;
+  color: var(--text-muted);
+  transition: all var(--transition-normal);
+}
+
+.drop-zone.drag-over {
+  border-color: var(--accent-blue);
+  background: rgba(31, 111, 235, 0.1);
+  color: var(--text-link);
+}
+
+.connection-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+}
+
+.connection-indicator .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green-bright);
+}
+
+.connection-indicator.disconnected .dot {
+  background: var(--accent-red-bright);
+}
+
+.connection-indicator.reconnecting .dot {
+  background: var(--accent-yellow-bright);
+  animation: pulse 0.5s infinite;
+}
+
+@media (max-width: 768px) {
+  .sql-area {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .persistence-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .proof-steps {
+    flex-direction: column;
+  }
+
+  .proof-arrow {
+    transform: rotate(90deg);
+  }
+}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">A lightweight TypeScript wrapper for SQL.js with migrations, persistence, and full type safety.</p>
+      <nav class="header-links">
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link" target="_blank">
+          npm
+        </a>
+        <a href="https://github.com/motioneffector/sql" class="header-link" target="_blank">
+          GitHub
+        </a>
+        <a href="https://github.com/motioneffector/sql/wiki" class="header-link" target="_blank">
+          Manual
+        </a>
+      </nav>
+    </header>
+
+    <main class="exhibits">
+      <!-- Exhibit 1: Live Database -->
+      <section class="exhibit">
+        <div class="exhibit-header">
+          <h2 class="exhibit-title">Live Database</h2>
+          <p class="exhibit-description">Execute SQL and watch data change in real-time. Rows animate on INSERT, DELETE, and UPDATE.</p>
+        </div>
+        <div class="exhibit-content">
+          <div class="exhibit-interactive" id="exhibit-1">
+            <div class="live-tables" id="live-tables">
+              <!-- Tables render here -->
+            </div>
+            <div class="sql-area">
+              <div class="sql-editor-wrap">
+                <textarea class="sql-editor" id="sql-input" spellcheck="false">INSERT INTO products (name, category, price, stock)
+VALUES ('Wireless Headphones', 'Electronics', 129.99, 15);</textarea>
+                <button class="btn btn-primary" id="run-sql">Run Query</button>
+              </div>
+              <div class="sql-result" id="sql-result">
+                <span class="text-muted">Query results appear here</span>
+              </div>
+            </div>
+          </div>
+          <div class="exhibit-controls">
+            <button class="btn btn-secondary" data-action="add-product">Add Product</button>
+            <button class="btn btn-secondary" data-action="remove-last">Remove Last</button>
+            <button class="btn btn-secondary" data-action="price-increase">Price +10%</button>
+            <button class="btn btn-secondary" data-action="find-expensive">Find Expensive</button>
+            <button class="btn btn-secondary" data-action="category-stats">Category Stats</button>
+            <button class="btn btn-small btn-secondary" data-action="reset-db1">Reset Data</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Exhibit 2: Data Grid -->
+      <section class="exhibit">
+        <div class="exhibit-header">
+          <h2 class="exhibit-title">Data Grid</h2>
+          <p class="exhibit-description">Edit cells directly, add rows with a click, drag to delete. All changes persist to the database.</p>
+        </div>
+        <div class="exhibit-content">
+          <div class="exhibit-interactive" id="exhibit-2">
+            <div class="data-grid-container">
+              <table class="data-grid" id="data-grid">
+                <thead>
+                  <tr id="grid-header"></tr>
+                </thead>
+                <tbody id="grid-body"></tbody>
+              </table>
+            </div>
+            <div class="trash-zone" id="trash-zone">
+              Drop row here to delete
+            </div>
+          </div>
+          <div class="exhibit-controls">
+            <button class="btn btn-primary" id="quick-add">+ Quick Add</button>
+            <button class="btn btn-secondary" id="custom-add">+ Custom Add</button>
+            <select class="input" id="table-select">
+              <option value="products">products</option>
+              <option value="categories">categories</option>
+            </select>
+            <button class="btn btn-small btn-secondary" data-action="reset-db2">Reset Data</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Exhibit 3: Transaction Visualizer -->
+      <section class="exhibit">
+        <div class="exhibit-header">
+          <h2 class="exhibit-title">Transaction Visualizer</h2>
+          <p class="exhibit-description">Watch ACID transactions in action. See operations stack up, then commit or rollback.</p>
+        </div>
+        <div class="exhibit-content">
+          <div class="exhibit-interactive" id="exhibit-3">
+            <div class="transaction-layout">
+              <div class="transaction-timeline">
+                <div class="timeline-container" id="txn-container">
+                  <div class="timeline-label">Transaction Active</div>
+                  <div id="operations-list"></div>
+                </div>
+                <div id="no-transaction" class="text-muted p-md">
+                  No active transaction. Click BEGIN to start.
+                </div>
+              </div>
+              <div class="account-panel" id="accounts-panel">
+                <!-- Account cards render here -->
+              </div>
+            </div>
+            <div class="transaction-status">
+              <div class="status-item">
+                <span class="status-label">inTransaction</span>
+                <span class="status-value" id="txn-status">false</span>
+              </div>
+              <div class="status-item">
+                <span class="status-label">Pending Operations</span>
+                <span class="status-value" id="pending-ops">0</span>
+              </div>
+            </div>
+          </div>
+          <div class="exhibit-controls">
+            <button class="btn btn-primary" id="demo-txn">Demo: Transfer &amp; Rollback</button>
+            <button class="btn btn-secondary" id="btn-begin">BEGIN</button>
+            <button class="btn btn-secondary" id="btn-commit" disabled>COMMIT</button>
+            <button class="btn btn-danger" id="btn-rollback" disabled>ROLLBACK</button>
+            <span class="text-muted">|</span>
+            <button class="btn btn-secondary btn-small" id="transfer-ab">Alice &rarr; Bob $50</button>
+            <button class="btn btn-secondary btn-small" id="transfer-bc">Bob &rarr; Charlie $25</button>
+            <button class="btn btn-secondary btn-small" id="transfer-ca">Charlie &rarr; Alice $75</button>
+            <button class="btn btn-small btn-secondary" data-action="reset-db3">Reset</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Exhibit 4: Persistence Proof -->
+      <section class="exhibit">
+        <div class="exhibit-header">
+          <h2 class="exhibit-title">Persistence Proof</h2>
+          <p class="exhibit-description">Data survives destruction. Watch the database die and resurrect with data intact.</p>
+        </div>
+        <div class="exhibit-content">
+          <div class="exhibit-interactive" id="exhibit-4">
+            <div class="persistence-layout">
+              <div>
+                <div class="notes-panel">
+                  <div class="notes-header">
+                    <span>notes <span class="text-muted" id="notes-count">(0 rows)</span></span>
+                    <span class="connection-indicator" id="connection-status">
+                      <span class="dot"></span>
+                      <span>Connected</span>
+                    </span>
+                  </div>
+                  <div class="notes-list" id="notes-list">
+                    <!-- Notes render here -->
+                  </div>
+                </div>
+                <div class="proof-section">
+                  <div class="proof-title">Persistence Proof</div>
+                  <div class="proof-steps">
+                    <div class="proof-step active" id="step-active">
+                      <div class="proof-step-icon">&#128451;</div>
+                      <div class="proof-step-label">Database Active</div>
+                    </div>
+                    <div class="proof-arrow">&rarr;</div>
+                    <div class="proof-step" id="step-destroyed">
+                      <div class="proof-step-icon">&#128165;</div>
+                      <div class="proof-step-label">Destroyed</div>
+                    </div>
+                    <div class="proof-arrow">&rarr;</div>
+                    <div class="proof-step" id="step-restored">
+                      <div class="proof-step-icon">&#128451;</div>
+                      <div class="proof-step-label">Restored!</div>
+                    </div>
+                  </div>
+                  <div style="text-align: center;">
+                    <button class="btn btn-danger" id="destroy-restore">Destroy &amp; Restore</button>
+                  </div>
+                </div>
+              </div>
+              <div class="storage-panel">
+                <div class="storage-info">
+                  <div class="storage-title">IndexedDB</div>
+                  <div class="storage-key">Key: demo-persistence</div>
+                  <div class="storage-bar">
+                    <div class="storage-bar-fill" id="storage-fill" style="width: 30%"></div>
+                  </div>
+                  <div class="storage-size" id="storage-size">~24 KB</div>
+                </div>
+                <div class="storage-status" id="save-status">
+                  <span class="status-dot"></span>
+                  <span>Saved</span>
+                </div>
+                <button class="btn btn-secondary" id="save-now">Save Now</button>
+                <label class="toggle">
+                  <input type="checkbox" id="auto-save-toggle" checked>
+                  <span class="toggle-switch"></span>
+                  <span class="toggle-label">Auto-save</span>
+                </label>
+              </div>
+            </div>
+            <div class="export-section">
+              <div class="export-title">Export / Import</div>
+              <div class="export-buttons">
+                <button class="btn btn-secondary" id="export-db">Export .sqlite</button>
+                <button class="btn btn-secondary" id="import-btn">Import .sqlite</button>
+                <input type="file" id="import-file" accept=".sqlite,.db" style="display: none;">
+              </div>
+              <div class="drop-zone" id="drop-zone">
+                Drag a .sqlite file here to import
+              </div>
+            </div>
+          </div>
+          <div class="exhibit-controls">
+            <button class="btn btn-primary" id="add-note">+ Add Note</button>
+            <input type="text" class="input" id="note-input" placeholder="Type a custom note...">
+            <button class="btn btn-danger btn-small" id="clear-all">Clear All Data</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="test-runner">
+      <div class="test-runner-header">
+        <h2 class="test-runner-title">Test Suite</h2>
+        <div class="test-runner-actions">
+          <button class="btn btn-primary" id="run-tests">Run Tests</button>
+          <button class="btn btn-secondary" id="run-fuzz" style="display: none;">Run Fuzz Tests</button>
+        </div>
+      </div>
+      <div class="test-runner-content">
+        <div class="test-progress">
+          <div class="test-progress-bar">
+            <div class="test-progress-fill" id="progress-fill"></div>
+          </div>
+          <div class="test-progress-text" id="progress-text">Ready to run tests</div>
+        </div>
+        <div class="test-output" id="test-output">
+          <div class="test-output-empty">Click "Run Tests" to execute the test suite</div>
+        </div>
+        <div class="test-summary hidden" id="test-summary">
+          <div class="test-summary-item passed">
+            <span>&#10003;</span>
+            <span id="passed-count">0</span> passed
+          </div>
+          <div class="test-summary-item failed">
+            <span>&#10007;</span>
+            <span id="failed-count">0</span> failed
+          </div>
+          <div class="test-summary-item skipped">
+            <span>&#9675;</span>
+            <span id="skipped-count">0</span> skipped
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+  <script type="module">
+// ============================================
+// DATABASE INITIALIZATION
+// ============================================
+
+let SQL;
+let db1, db2, db3, db4; // Separate databases for each exhibit
+
+async function initSQL() {
+  SQL = await initSqlJs({
+    locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+  });
+}
+
+function createDB() {
+  return new SQL.Database();
+}
+
+// ============================================
+// EXHIBIT 1: LIVE DATABASE
+// ============================================
+
+const initialData1 = `
+CREATE TABLE products (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  category TEXT,
+  price REAL NOT NULL,
+  stock INTEGER DEFAULT 0
+);
+
+INSERT INTO products (name, category, price, stock) VALUES
+  ('Mechanical Keyboard', 'Electronics', 149.99, 25),
+  ('Ergonomic Mouse', 'Electronics', 79.99, 50),
+  ('USB-C Hub', 'Electronics', 49.99, 100),
+  ('Standing Desk Mat', 'Furniture', 89.99, 30),
+  ('Monitor Light Bar', 'Electronics', 59.99, 45);
+
+CREATE TABLE categories (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL
+);
+
+INSERT INTO categories VALUES (1, 'Electronics'), (2, 'Furniture');
+`;
+
+let productCounter = 6;
+
+function initExhibit1() {
+  db1 = createDB();
+  db1.run(initialData1);
+  productCounter = 6;
+  renderLiveTables();
+}
+
+function renderLiveTables() {
+  const container = document.getElementById('live-tables');
+  container.innerHTML = '';
+
+  const tables = ['products', 'categories'];
+  tables.forEach(tableName => {
+    const rows = db1.exec(`SELECT * FROM ${tableName}`);
+    const tableEl = document.createElement('div');
+    tableEl.className = 'live-table';
+    tableEl.id = `table-${tableName}`;
+
+    if (rows.length === 0) {
+      tableEl.innerHTML = `
+        <div class="live-table-header">
+          ${tableName} <span class="live-table-count">(0 rows)</span>
+        </div>
+        <div class="live-table-body"><div class="p-md text-muted">No data</div></div>
+      `;
+    } else {
+      const result = rows[0];
+      tableEl.innerHTML = `
+        <div class="live-table-header">
+          ${tableName} <span class="live-table-count">(${result.values.length} rows)</span>
+        </div>
+        <div class="live-table-body">
+          <table>
+            <tr>${result.columns.map(c => `<th>${c}</th>`).join('')}</tr>
+            ${result.values.map((row, i) => `<tr data-id="${row[0]}">${row.map(v => `<td>${v ?? ''}</td>`).join('')}</tr>`).join('')}
+          </table>
+        </div>
+      `;
+    }
+    container.appendChild(tableEl);
+  });
+}
+
+function highlightRow(tableName, id, className = 'highlight') {
+  const table = document.getElementById(`table-${tableName}`);
+  if (!table) return;
+  const row = table.querySelector(`tr[data-id="${id}"]`);
+  if (row) {
+    row.classList.add(className);
+    setTimeout(() => row.classList.remove(className), 500);
+  }
+}
+
+function animateNewRow(tableName, id) {
+  setTimeout(() => {
+    const table = document.getElementById(`table-${tableName}`);
+    if (!table) return;
+    const row = table.querySelector(`tr[data-id="${id}"]`);
+    if (row) {
+      row.classList.add('insert-anim');
+      setTimeout(() => row.classList.remove('insert-anim'), 300);
+    }
+  }, 10);
+}
+
+function runSQL(sql) {
+  const resultEl = document.getElementById('sql-result');
+  try {
+    // Check if it's a SELECT
+    const isSelect = sql.trim().toUpperCase().startsWith('SELECT');
+
+    if (isSelect) {
+      const results = db1.exec(sql);
+      if (results.length === 0) {
+        resultEl.innerHTML = '<span class="text-muted">No results</span>';
+      } else {
+        const r = results[0];
+        resultEl.innerHTML = `<table style="width:100%;font-size:12px;">
+          <tr>${r.columns.map(c => `<th style="text-align:left;padding:2px 4px;border-bottom:1px solid var(--border-muted);">${c}</th>`).join('')}</tr>
+          ${r.values.slice(0, 20).map(row => `<tr>${row.map(v => `<td style="padding:2px 4px;">${v ?? 'NULL'}</td>`).join('')}</tr>`).join('')}
+          ${r.values.length > 20 ? `<tr><td colspan="${r.columns.length}" class="text-muted">...and ${r.values.length - 20} more rows</td></tr>` : ''}
+        </table>`;
+
+        // Highlight matching rows
+        r.values.forEach(row => {
+          highlightRow('products', row[0]);
+          highlightRow('categories', row[0]);
+        });
+      }
+    } else {
+      db1.run(sql);
+      const changes = db1.exec('SELECT changes()')[0].values[0][0];
+      const lastId = db1.exec('SELECT last_insert_rowid()')[0].values[0][0];
+      resultEl.innerHTML = `<span class="sql-result-success">Success!</span><br>Changes: ${changes}<br>Last Insert ID: ${lastId}`;
+
+      renderLiveTables();
+
+      if (sql.toUpperCase().includes('INSERT')) {
+        animateNewRow('products', lastId);
+        animateNewRow('categories', lastId);
+      }
+    }
+  } catch (e) {
+    resultEl.innerHTML = `<span class="sql-result-error">Error: ${e.message}</span>`;
+  }
+}
+
+document.getElementById('run-sql').addEventListener('click', () => {
+  runSQL(document.getElementById('sql-input').value);
+});
+
+document.getElementById('sql-input').addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'Enter') {
+    runSQL(document.getElementById('sql-input').value);
+  }
+});
+
+// Quick action buttons
+document.querySelectorAll('[data-action]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const action = btn.dataset.action;
+
+    if (action === 'add-product') {
+      const names = ['Gaming Headset', 'Webcam HD', 'Desk Lamp', 'Cable Organizer', 'Mousepad XL', 'Monitor Arm', 'Laptop Stand'];
+      const name = names[Math.floor(Math.random() * names.length)];
+      const price = (Math.random() * 150 + 20).toFixed(2);
+      const stock = Math.floor(Math.random() * 100);
+      runSQL(`INSERT INTO products (name, category, price, stock) VALUES ('${name}', 'Electronics', ${price}, ${stock})`);
+    } else if (action === 'remove-last') {
+      const last = db1.exec('SELECT MAX(id) FROM products');
+      if (last[0]?.values[0][0]) {
+        const id = last[0].values[0][0];
+        const row = document.querySelector(`#table-products tr[data-id="${id}"]`);
+        if (row) {
+          row.classList.add('delete-anim');
+          setTimeout(() => {
+            db1.run(`DELETE FROM products WHERE id = ${id}`);
+            renderLiveTables();
+          }, 200);
+        }
+      }
+    } else if (action === 'price-increase') {
+      db1.run('UPDATE products SET price = price * 1.1');
+      renderLiveTables();
+      document.querySelectorAll('#table-products td:nth-child(4)').forEach(td => {
+        td.classList.add('update-anim');
+        setTimeout(() => td.classList.remove('update-anim'), 300);
+      });
+      document.getElementById('sql-result').innerHTML = '<span class="sql-result-success">All prices increased by 10%!</span>';
+    } else if (action === 'find-expensive') {
+      runSQL('SELECT * FROM products WHERE price > 100');
+    } else if (action === 'category-stats') {
+      runSQL('SELECT category, COUNT(*) as count, ROUND(SUM(price), 2) as total FROM products GROUP BY category');
+    } else if (action === 'reset-db1') {
+      initExhibit1();
+      document.getElementById('sql-result').innerHTML = '<span class="text-muted">Database reset to initial state</span>';
+    } else if (action === 'reset-db2') {
+      initExhibit2();
+    } else if (action === 'reset-db3') {
+      initExhibit3();
+    }
+  });
+});
+
+// ============================================
+// EXHIBIT 2: DATA GRID
+// ============================================
+
+function initExhibit2() {
+  db2 = createDB();
+  db2.run(initialData1);
+  renderDataGrid('products');
+}
+
+function renderDataGrid(tableName) {
+  const headerEl = document.getElementById('grid-header');
+  const bodyEl = document.getElementById('grid-body');
+
+  const results = db2.exec(`SELECT * FROM ${tableName}`);
+  if (results.length === 0) {
+    headerEl.innerHTML = '<th>No data</th>';
+    bodyEl.innerHTML = '';
+    return;
+  }
+
+  const { columns, values } = results[0];
+
+  headerEl.innerHTML = columns.map(c => `<th data-col="${c}">${c}</th>`).join('') + '<th style="width:40px;"></th>';
+
+  bodyEl.innerHTML = values.map((row, rowIdx) => {
+    const id = row[0];
+    return `<tr data-id="${id}" draggable="true">
+      ${row.map((val, colIdx) => {
+        const editable = colIdx > 0 ? 'contenteditable="true"' : '';
+        return `<td data-col="${columns[colIdx]}" ${editable}>${val ?? ''}</td>`;
+      }).join('')}
+      <td class="text-muted" style="text-align:center;cursor:grab;">&#9776;</td>
+    </tr>`;
+  }).join('');
+
+  // Add event listeners for editing
+  bodyEl.querySelectorAll('td[contenteditable]').forEach(td => {
+    let originalValue = td.textContent;
+
+    td.addEventListener('focus', () => {
+      originalValue = td.textContent;
+      td.closest('tr').classList.add('editing');
+    });
+
+    td.addEventListener('blur', () => {
+      td.closest('tr').classList.remove('editing');
+      const newValue = td.textContent;
+      if (newValue !== originalValue) {
+        const col = td.dataset.col;
+        const id = td.closest('tr').dataset.id;
+        try {
+          const isNum = !isNaN(parseFloat(newValue)) && col !== 'name' && col !== 'category';
+          const val = isNum ? parseFloat(newValue) : `'${newValue.replace(/'/g, "''")}'`;
+          db2.run(`UPDATE ${tableName} SET ${col} = ${val} WHERE id = ${id}`);
+          td.classList.add('cell-success');
+          setTimeout(() => td.classList.remove('cell-success'), 300);
+        } catch (e) {
+          td.textContent = originalValue;
+          td.classList.add('cell-error');
+          setTimeout(() => td.classList.remove('cell-error'), 300);
+        }
+      }
+    });
+
+    td.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        td.blur();
+      } else if (e.key === 'Escape') {
+        td.textContent = originalValue;
+        td.blur();
+      }
+    });
+  });
+
+  // Drag and drop for rows
+  bodyEl.querySelectorAll('tr').forEach(row => {
+    row.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', row.dataset.id);
+      row.style.opacity = '0.5';
+    });
+
+    row.addEventListener('dragend', () => {
+      row.style.opacity = '1';
+    });
+  });
+}
+
+// Trash zone
+const trashZone = document.getElementById('trash-zone');
+trashZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  trashZone.classList.add('drag-over');
+});
+
+trashZone.addEventListener('dragleave', () => {
+  trashZone.classList.remove('drag-over');
+});
+
+trashZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  trashZone.classList.remove('drag-over');
+  const id = e.dataTransfer.getData('text/plain');
+  const tableName = document.getElementById('table-select').value;
+
+  const row = document.querySelector(`#grid-body tr[data-id="${id}"]`);
+  if (row) {
+    row.classList.add('row-delete');
+    setTimeout(() => {
+      db2.run(`DELETE FROM ${tableName} WHERE id = ${id}`);
+      renderDataGrid(tableName);
+    }, 200);
+  }
+});
+
+// Quick add
+document.getElementById('quick-add').addEventListener('click', () => {
+  const tableName = document.getElementById('table-select').value;
+  if (tableName === 'products') {
+    const names = ['New Widget', 'Super Gadget', 'Pro Device', 'Ultra Tool', 'Mega Accessory'];
+    const name = names[Math.floor(Math.random() * names.length)] + ' #' + Math.floor(Math.random() * 1000);
+    const price = (Math.random() * 200 + 10).toFixed(2);
+    const stock = Math.floor(Math.random() * 100);
+    db2.run(`INSERT INTO products (name, category, price, stock) VALUES ('${name}', 'Electronics', ${price}, ${stock})`);
+  } else {
+    const id = Math.floor(Math.random() * 1000) + 10;
+    db2.run(`INSERT INTO categories VALUES (${id}, 'New Category')`);
+  }
+  renderDataGrid(tableName);
+});
+
+// Custom add
+document.getElementById('custom-add').addEventListener('click', () => {
+  const tableName = document.getElementById('table-select').value;
+  if (tableName === 'products') {
+    db2.run(`INSERT INTO products (name, category, price, stock) VALUES ('', '', 0, 0)`);
+  } else {
+    const id = Math.floor(Math.random() * 1000) + 10;
+    db2.run(`INSERT INTO categories VALUES (${id}, '')`);
+  }
+  renderDataGrid(tableName);
+  // Focus the first editable cell of new row
+  const newRow = document.querySelector('#grid-body tr:last-child td[contenteditable]');
+  if (newRow) newRow.focus();
+});
+
+// Table selector
+document.getElementById('table-select').addEventListener('change', (e) => {
+  renderDataGrid(e.target.value);
+});
+
+// ============================================
+// EXHIBIT 3: TRANSACTION VISUALIZER
+// ============================================
+
+const initialData3 = `
+CREATE TABLE accounts (
+  name TEXT PRIMARY KEY,
+  balance INTEGER NOT NULL
+);
+
+INSERT INTO accounts VALUES ('Alice', 200), ('Bob', 200), ('Charlie', 200);
+`;
+
+let inTransaction = false;
+let operations = [];
+let savedBalances = {};
+
+function initExhibit3() {
+  db3 = createDB();
+  db3.run(initialData3);
+  inTransaction = false;
+  operations = [];
+  savedBalances = {};
+  renderAccounts();
+  updateTxnUI();
+}
+
+function renderAccounts() {
+  const panel = document.getElementById('accounts-panel');
+  const results = db3.exec('SELECT name, balance FROM accounts');
+  if (results.length === 0) return;
+
+  panel.innerHTML = results[0].values.map(([name, balance]) => `
+    <div class="account-card" data-name="${name}">
+      <div class="account-name">${name}</div>
+      <div class="account-balance" data-balance="${balance}">$${balance}</div>
+    </div>
+  `).join('');
+}
+
+function updateTxnUI() {
+  const container = document.getElementById('txn-container');
+  const noTxn = document.getElementById('no-transaction');
+  const statusEl = document.getElementById('txn-status');
+  const pendingEl = document.getElementById('pending-ops');
+  const opsList = document.getElementById('operations-list');
+
+  if (inTransaction) {
+    container.classList.add('active');
+    container.classList.remove('committed', 'rolled-back');
+    noTxn.style.display = 'none';
+    statusEl.textContent = 'true';
+    statusEl.classList.add('active');
+  } else {
+    container.classList.remove('active');
+    noTxn.style.display = 'block';
+    statusEl.textContent = 'false';
+    statusEl.classList.remove('active');
+  }
+
+  pendingEl.textContent = operations.length;
+
+  opsList.innerHTML = operations.map((op, i) => `
+    <div class="operation-card ${op.status}">
+      <span class="operation-icon">${op.icon}</span>
+      <span>${op.label}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('btn-begin').disabled = inTransaction;
+  document.getElementById('btn-commit').disabled = !inTransaction;
+  document.getElementById('btn-rollback').disabled = !inTransaction;
+}
+
+function beginTransaction() {
+  if (inTransaction) return;
+
+  // Save current balances
+  const results = db3.exec('SELECT name, balance FROM accounts');
+  savedBalances = {};
+  results[0].values.forEach(([name, balance]) => {
+    savedBalances[name] = balance;
+  });
+
+  inTransaction = true;
+  operations = [];
+  updateTxnUI();
+}
+
+function addOperation(from, to, amount) {
+  if (!inTransaction) return;
+
+  // Execute the transfer
+  db3.run(`UPDATE accounts SET balance = balance - ${amount} WHERE name = '${from}'`);
+  db3.run(`UPDATE accounts SET balance = balance + ${amount} WHERE name = '${to}'`);
+
+  operations.push({
+    icon: '&#128176;',
+    label: `${from} → ${to} $${amount}`,
+    status: 'pending',
+    from, to, amount
+  });
+
+  renderAccounts();
+  updateTxnUI();
+
+  // Animate balance change
+  const fromCard = document.querySelector(`.account-card[data-name="${from}"] .account-balance`);
+  const toCard = document.querySelector(`.account-card[data-name="${to}"] .account-balance`);
+  if (fromCard) fromCard.classList.add('changing');
+  if (toCard) toCard.classList.add('changing');
+  setTimeout(() => {
+    if (fromCard) fromCard.classList.remove('changing');
+    if (toCard) toCard.classList.remove('changing');
+  }, 300);
+}
+
+function commitTransaction() {
+  if (!inTransaction) return;
+
+  // Mark operations as committed
+  operations = operations.map(op => ({ ...op, status: 'committed' }));
+  document.getElementById('txn-container').classList.add('committed');
+  updateTxnUI();
+
+  setTimeout(() => {
+    inTransaction = false;
+    operations = [];
+    savedBalances = {};
+    updateTxnUI();
+  }, 500);
+}
+
+function rollbackTransaction() {
+  if (!inTransaction) return;
+
+  // Mark operations as rolled back
+  operations = operations.map(op => ({ ...op, status: 'rolled-back' }));
+  document.getElementById('txn-container').classList.add('rolled-back');
+  updateTxnUI();
+
+  // Animate balance rollback
+  document.querySelectorAll('.account-balance').forEach(el => {
+    el.classList.add('rolling-back');
+  });
+
+  setTimeout(() => {
+    // Restore saved balances
+    Object.entries(savedBalances).forEach(([name, balance]) => {
+      db3.run(`UPDATE accounts SET balance = ${balance} WHERE name = '${name}'`);
+    });
+
+    renderAccounts();
+
+    setTimeout(() => {
+      document.querySelectorAll('.account-balance').forEach(el => {
+        el.classList.remove('rolling-back');
+      });
+
+      inTransaction = false;
+      operations = [];
+      savedBalances = {};
+      updateTxnUI();
+    }, 200);
+  }, 400);
+}
+
+document.getElementById('btn-begin').addEventListener('click', beginTransaction);
+document.getElementById('btn-commit').addEventListener('click', commitTransaction);
+document.getElementById('btn-rollback').addEventListener('click', rollbackTransaction);
+
+document.getElementById('transfer-ab').addEventListener('click', () => addOperation('Alice', 'Bob', 50));
+document.getElementById('transfer-bc').addEventListener('click', () => addOperation('Bob', 'Charlie', 25));
+document.getElementById('transfer-ca').addEventListener('click', () => addOperation('Charlie', 'Alice', 75));
+
+// Demo button
+document.getElementById('demo-txn').addEventListener('click', async () => {
+  // Reset first
+  initExhibit3();
+  await sleep(300);
+
+  // Begin
+  beginTransaction();
+  await sleep(600);
+
+  // Transfer 1
+  addOperation('Alice', 'Bob', 50);
+  await sleep(800);
+
+  // Transfer 2
+  addOperation('Bob', 'Charlie', 25);
+  await sleep(1000);
+
+  // Rollback
+  rollbackTransaction();
+});
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+// ============================================
+// EXHIBIT 4: PERSISTENCE PROOF
+// ============================================
+
+const initialData4 = `
+CREATE TABLE notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  content TEXT NOT NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO notes (content) VALUES
+  ('Hello world'),
+  ('My second note'),
+  ('This will persist');
+`;
+
+let persistenceData = null;
+let autoSave = true;
+let isDirty = false;
+
+function initExhibit4() {
+  db4 = createDB();
+  db4.run(initialData4);
+
+  // Save initial state
+  persistenceData = db4.export();
+
+  renderNotes();
+  updateStorageInfo();
+  updateConnectionStatus('connected');
+}
+
+function renderNotes() {
+  const list = document.getElementById('notes-list');
+  const countEl = document.getElementById('notes-count');
+
+  const results = db4.exec('SELECT id, content FROM notes ORDER BY id DESC');
+
+  if (results.length === 0 || results[0].values.length === 0) {
+    list.innerHTML = '<div class="p-md text-muted">No notes yet</div>';
+    countEl.textContent = '(0 rows)';
+    return;
+  }
+
+  const notes = results[0].values;
+  countEl.textContent = `(${notes.length} rows)`;
+
+  list.innerHTML = notes.map(([id, content]) => `
+    <div class="note-item" data-id="${id}">
+      <span class="note-content">${escapeHtml(content)}</span>
+      <button class="note-delete" data-id="${id}">&#10005;</button>
+    </div>
+  `).join('');
+
+  // Delete buttons
+  list.querySelectorAll('.note-delete').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      db4.run(`DELETE FROM notes WHERE id = ${id}`);
+      markDirty();
+      renderNotes();
+    });
+  });
+}
+
+function updateStorageInfo() {
+  const data = db4.export();
+  const size = data.byteLength;
+  const sizeKB = (size / 1024).toFixed(1);
+
+  document.getElementById('storage-size').textContent = `~${sizeKB} KB`;
+  document.getElementById('storage-fill').style.width = `${Math.min(size / 1000, 100)}%`;
+}
+
+function updateConnectionStatus(status) {
+  const el = document.getElementById('connection-status');
+  el.className = 'connection-indicator';
+
+  if (status === 'connected') {
+    el.innerHTML = '<span class="dot"></span><span>Connected</span>';
+  } else if (status === 'disconnected') {
+    el.classList.add('disconnected');
+    el.innerHTML = '<span class="dot"></span><span>Destroyed</span>';
+  } else if (status === 'reconnecting') {
+    el.classList.add('reconnecting');
+    el.innerHTML = '<span class="dot"></span><span>Restoring...</span>';
+  }
+}
+
+function markDirty() {
+  isDirty = true;
+  updateSaveStatus();
+
+  if (autoSave) {
+    setTimeout(() => {
+      if (isDirty) saveDatabase();
+    }, 500);
+  }
+}
+
+function saveDatabase() {
+  persistenceData = db4.export();
+  isDirty = false;
+  updateSaveStatus();
+  updateStorageInfo();
+}
+
+function updateSaveStatus() {
+  const el = document.getElementById('save-status');
+  if (isDirty) {
+    el.classList.add('dirty');
+    el.innerHTML = '<span class="status-dot pulsing"></span><span>Unsaved</span>';
+  } else {
+    el.classList.remove('dirty');
+    el.innerHTML = '<span class="status-dot"></span><span>Saved</span>';
+  }
+}
+
+// Add note
+document.getElementById('add-note').addEventListener('click', () => {
+  const quotes = [
+    'The quick brown fox jumps over the lazy dog',
+    'Remember to demo this feature!',
+    'Data persistence is magical',
+    'SQLite in the browser - how cool is that?',
+    'This note was auto-generated'
+  ];
+  const content = quotes[Math.floor(Math.random() * quotes.length)] + ' - ' + new Date().toLocaleTimeString();
+  db4.run(`INSERT INTO notes (content) VALUES ('${content.replace(/'/g, "''")}')`);
+  markDirty();
+  renderNotes();
+});
+
+// Custom note
+document.getElementById('note-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.value.trim()) {
+    const content = e.target.value.trim();
+    db4.run(`INSERT INTO notes (content) VALUES ('${content.replace(/'/g, "''")}')`);
+    e.target.value = '';
+    markDirty();
+    renderNotes();
+  }
+});
+
+// Save now
+document.getElementById('save-now').addEventListener('click', saveDatabase);
+
+// Auto-save toggle
+document.getElementById('auto-save-toggle').addEventListener('change', (e) => {
+  autoSave = e.target.checked;
+});
+
+// Clear all
+document.getElementById('clear-all').addEventListener('click', () => {
+  if (confirm('Are you sure you want to delete all notes?')) {
+    db4.run('DELETE FROM notes');
+    markDirty();
+    renderNotes();
+  }
+});
+
+// Destroy & Restore
+document.getElementById('destroy-restore').addEventListener('click', async () => {
+  const btn = document.getElementById('destroy-restore');
+  btn.disabled = true;
+
+  // Save current state
+  saveDatabase();
+
+  const steps = {
+    active: document.getElementById('step-active'),
+    destroyed: document.getElementById('step-destroyed'),
+    restored: document.getElementById('step-restored')
+  };
+
+  // Step 1: Active
+  steps.active.classList.add('active');
+  steps.destroyed.classList.remove('active', 'destroyed');
+  steps.restored.classList.remove('active', 'restored');
+  await sleep(500);
+
+  // Step 2: Destroy
+  updateConnectionStatus('disconnected');
+  steps.active.classList.remove('active');
+  steps.destroyed.classList.add('active', 'destroyed');
+
+  // Clear the display
+  document.getElementById('notes-list').innerHTML = '<div class="p-md text-muted">Database destroyed...</div>';
+  document.getElementById('notes-count').textContent = '(-)';
+
+  db4.close();
+  db4 = null;
+
+  await sleep(1000);
+
+  // Step 3: Restore
+  updateConnectionStatus('reconnecting');
+  steps.destroyed.classList.remove('active');
+  steps.restored.classList.add('active', 'restored');
+
+  await sleep(500);
+
+  // Recreate from saved data
+  db4 = new SQL.Database(persistenceData);
+
+  updateConnectionStatus('connected');
+  renderNotes();
+  updateStorageInfo();
+
+  await sleep(1000);
+
+  // Reset steps
+  steps.restored.classList.remove('active', 'restored');
+  steps.active.classList.add('active');
+
+  btn.disabled = false;
+});
+
+// Export
+document.getElementById('export-db').addEventListener('click', () => {
+  const data = db4.export();
+  const blob = new Blob([data], { type: 'application/x-sqlite3' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `notes-${Date.now()}.sqlite`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// Import
+document.getElementById('import-btn').addEventListener('click', () => {
+  document.getElementById('import-file').click();
+});
+
+document.getElementById('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = new Uint8Array(ev.target.result);
+      db4.close();
+      db4 = new SQL.Database(data);
+      persistenceData = data;
+      isDirty = false;
+      updateSaveStatus();
+      renderNotes();
+      updateStorageInfo();
+    } catch (err) {
+      alert('Failed to import: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = '';
+});
+
+// Drop zone
+const dropZone = document.getElementById('drop-zone');
+
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('drag-over');
+});
+
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = new Uint8Array(ev.target.result);
+      db4.close();
+      db4 = new SQL.Database(data);
+      persistenceData = data;
+      isDirty = false;
+      updateSaveStatus();
+      renderNotes();
+      updateStorageInfo();
+    } catch (err) {
+      alert('Failed to import: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+// ============================================
+// TEST RUNNER
+// ============================================
+
+const testRunner = {
+  tests: [],
+  results: [],
+  running: false,
+
+  register(name, fn) {
+    this.tests.push({ name, fn })
+  },
+
+  async run() {
+    if (this.running) return
+    this.running = true
+    this.results = []
+
+    const output = document.getElementById('test-output')
+    const progressFill = document.getElementById('progress-fill')
+    const progressText = document.getElementById('progress-text')
+    const summary = document.getElementById('test-summary')
+    const passedCount = document.getElementById('passed-count')
+    const failedCount = document.getElementById('failed-count')
+    const skippedCount = document.getElementById('skipped-count')
+    const runBtn = document.getElementById('run-tests')
+
+    runBtn.disabled = true
+    output.innerHTML = ''
+    summary.classList.add('hidden')
+    progressFill.style.width = '0%'
+    progressFill.className = 'test-progress-fill'
+
+    let passed = 0
+    let failed = 0
+
+    for (let i = 0; i < this.tests.length; i++) {
+      const test = this.tests[i]
+      const progress = ((i + 1) / this.tests.length) * 100
+
+      progressFill.style.width = `${progress}%`
+      progressText.textContent = `Running: ${test.name}`
+
+      try {
+        await test.fn()
+        passed++
+        this.results.push({ name: test.name, passed: true })
+        output.innerHTML += `
+          <div class="test-item">
+            <span class="test-icon pass">&#10003;</span>
+            <span class="test-name">${escapeHtml(test.name)}</span>
+          </div>
+        `
+      } catch (e) {
+        failed++
+        this.results.push({ name: test.name, passed: false, error: e.message })
+        output.innerHTML += `
+          <div class="test-item">
+            <span class="test-icon fail">&#10007;</span>
+            <div>
+              <div class="test-name">${escapeHtml(test.name)}</div>
+              <div class="test-error">${escapeHtml(e.message)}</div>
+            </div>
+          </div>
+        `
+      }
+
+      // Scroll to bottom
+      output.scrollTop = output.scrollHeight
+
+      // Small delay so user can see progress
+      await new Promise(r => setTimeout(r, 20))
+    }
+
+    progressFill.classList.add(failed === 0 ? 'success' : 'failure')
+    progressText.textContent = `Complete: ${passed}/${this.tests.length} passed`
+
+    passedCount.textContent = passed
+    failedCount.textContent = failed
+    skippedCount.textContent = 0
+    summary.classList.remove('hidden')
+
+    runBtn.disabled = false
+    this.running = false
+  }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+document.getElementById('run-tests').addEventListener('click', () => testRunner.run())
+
+// ============================================
+// REGISTER TESTS
+// ============================================
+
+// Database creation tests
+testRunner.register('creates empty database', () => {
+  const db = createDB();
+  if (!db) throw new Error('Expected database to be created');
+  db.close();
+});
+
+testRunner.register('executes CREATE TABLE', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table'");
+  if (!tables[0]?.values.some(r => r[0] === 'test')) {
+    throw new Error('Expected test table to exist');
+  }
+  db.close();
+});
+
+testRunner.register('inserts data with run()', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run("INSERT INTO test (name) VALUES ('Alice')");
+  const result = db.exec('SELECT * FROM test');
+  if (result[0]?.values[0][1] !== 'Alice') {
+    throw new Error('Expected Alice to be inserted');
+  }
+  db.close();
+});
+
+testRunner.register('returns lastInsertRowId', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run("INSERT INTO test (name) VALUES ('Alice')");
+  const result = db.exec('SELECT last_insert_rowid()');
+  if (result[0]?.values[0][0] !== 1) {
+    throw new Error('Expected lastInsertRowId to be 1');
+  }
+  db.close();
+});
+
+testRunner.register('selects data with exec()', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run("INSERT INTO test (name) VALUES ('Alice'), ('Bob')");
+  const result = db.exec('SELECT * FROM test');
+  if (result[0]?.values.length !== 2) {
+    throw new Error('Expected 2 rows');
+  }
+  db.close();
+});
+
+testRunner.register('updates data', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run("INSERT INTO test (name) VALUES ('Alice')");
+  db.run("UPDATE test SET name = 'Alicia' WHERE id = 1");
+  const result = db.exec('SELECT name FROM test WHERE id = 1');
+  if (result[0]?.values[0][0] !== 'Alicia') {
+    throw new Error('Expected name to be updated to Alicia');
+  }
+  db.close();
+});
+
+testRunner.register('deletes data', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run("INSERT INTO test (name) VALUES ('Alice'), ('Bob')");
+  db.run('DELETE FROM test WHERE name = ?', ['Alice']);
+  const result = db.exec('SELECT * FROM test');
+  if (result[0]?.values.length !== 1) {
+    throw new Error('Expected 1 row after delete');
+  }
+  db.close();
+});
+
+testRunner.register('uses positional parameters', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)');
+  db.run('INSERT INTO test (name, age) VALUES (?, ?)', ['Alice', 30]);
+  const result = db.exec('SELECT * FROM test WHERE age = ?', [30]);
+  if (result[0]?.values[0][1] !== 'Alice') {
+    throw new Error('Expected Alice with age 30');
+  }
+  db.close();
+});
+
+testRunner.register('uses named parameters', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run('INSERT INTO test (name) VALUES (:name)', { ':name': 'Alice' });
+  const result = db.exec('SELECT * FROM test');
+  if (result[0]?.values[0][1] !== 'Alice') {
+    throw new Error('Expected Alice');
+  }
+  db.close();
+});
+
+testRunner.register('handles NULL values', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run('INSERT INTO test (name) VALUES (NULL)');
+  const result = db.exec('SELECT name FROM test');
+  if (result[0]?.values[0][0] !== null) {
+    throw new Error('Expected NULL value');
+  }
+  db.close();
+});
+
+testRunner.register('handles empty result sets', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  const result = db.exec('SELECT * FROM test');
+  if (result.length !== 0) {
+    throw new Error('Expected empty result');
+  }
+  db.close();
+});
+
+testRunner.register('throws on syntax error', () => {
+  const db = createDB();
+  let threw = false;
+  try {
+    db.run('SELEKT * FORM test');
+  } catch (e) {
+    threw = true;
+  }
+  if (!threw) throw new Error('Expected syntax error');
+  db.close();
+});
+
+testRunner.register('throws on missing table', () => {
+  const db = createDB();
+  let threw = false;
+  try {
+    db.run('SELECT * FROM nonexistent');
+  } catch (e) {
+    threw = true;
+  }
+  if (!threw) throw new Error('Expected table not found error');
+  db.close();
+});
+
+testRunner.register('enforces UNIQUE constraint', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, email TEXT UNIQUE)');
+  db.run("INSERT INTO test (email) VALUES ('a@b.com')");
+  let threw = false;
+  try {
+    db.run("INSERT INTO test (email) VALUES ('a@b.com')");
+  } catch (e) {
+    threw = true;
+  }
+  if (!threw) throw new Error('Expected UNIQUE constraint error');
+  db.close();
+});
+
+testRunner.register('enforces NOT NULL constraint', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
+  let threw = false;
+  try {
+    db.run('INSERT INTO test (name) VALUES (NULL)');
+  } catch (e) {
+    threw = true;
+  }
+  if (!threw) throw new Error('Expected NOT NULL constraint error');
+  db.close();
+});
+
+testRunner.register('supports foreign keys', () => {
+  const db = createDB();
+  db.run('PRAGMA foreign_keys = ON');
+  db.run('CREATE TABLE parent (id INTEGER PRIMARY KEY)');
+  db.run('CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id))');
+  db.run('INSERT INTO parent (id) VALUES (1)');
+  db.run('INSERT INTO child (parent_id) VALUES (1)');
+  const result = db.exec('SELECT * FROM child');
+  if (result[0]?.values.length !== 1) {
+    throw new Error('Expected 1 child row');
+  }
+  db.close();
+});
+
+testRunner.register('supports transactions (BEGIN/COMMIT)', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, val INTEGER)');
+  db.run('BEGIN');
+  db.run('INSERT INTO test (val) VALUES (1)');
+  db.run('INSERT INTO test (val) VALUES (2)');
+  db.run('COMMIT');
+  const result = db.exec('SELECT * FROM test');
+  if (result[0]?.values.length !== 2) {
+    throw new Error('Expected 2 rows after commit');
+  }
+  db.close();
+});
+
+testRunner.register('supports transactions (ROLLBACK)', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, val INTEGER)');
+  db.run('INSERT INTO test (val) VALUES (0)');
+  db.run('BEGIN');
+  db.run('INSERT INTO test (val) VALUES (1)');
+  db.run('ROLLBACK');
+  const result = db.exec('SELECT * FROM test');
+  if (result[0]?.values.length !== 1) {
+    throw new Error('Expected 1 row after rollback');
+  }
+  db.close();
+});
+
+testRunner.register('supports savepoints', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, val INTEGER)');
+  db.run('BEGIN');
+  db.run('INSERT INTO test (val) VALUES (1)');
+  db.run('SAVEPOINT sp1');
+  db.run('INSERT INTO test (val) VALUES (2)');
+  db.run('ROLLBACK TO sp1');
+  db.run('COMMIT');
+  const result = db.exec('SELECT * FROM test');
+  if (result[0]?.values.length !== 1) {
+    throw new Error('Expected 1 row after savepoint rollback');
+  }
+  db.close();
+});
+
+testRunner.register('supports aggregate functions', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, val INTEGER)');
+  db.run('INSERT INTO test (val) VALUES (10), (20), (30)');
+  const result = db.exec('SELECT SUM(val), AVG(val), COUNT(*) FROM test');
+  const [sum, avg, count] = result[0].values[0];
+  if (sum !== 60 || avg !== 20 || count !== 3) {
+    throw new Error(`Expected 60, 20, 3 but got ${sum}, ${avg}, ${count}`);
+  }
+  db.close();
+});
+
+testRunner.register('supports GROUP BY', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, cat TEXT, val INTEGER)');
+  db.run("INSERT INTO test (cat, val) VALUES ('A', 10), ('A', 20), ('B', 30)");
+  const result = db.exec('SELECT cat, SUM(val) FROM test GROUP BY cat ORDER BY cat');
+  if (result[0].values[0][1] !== 30 || result[0].values[1][1] !== 30) {
+    throw new Error('Expected correct GROUP BY sums');
+  }
+  db.close();
+});
+
+testRunner.register('supports ORDER BY', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, val INTEGER)');
+  db.run('INSERT INTO test (val) VALUES (30), (10), (20)');
+  const result = db.exec('SELECT val FROM test ORDER BY val ASC');
+  const values = result[0].values.map(r => r[0]);
+  if (values[0] !== 10 || values[1] !== 20 || values[2] !== 30) {
+    throw new Error('Expected sorted order');
+  }
+  db.close();
+});
+
+testRunner.register('supports LIMIT and OFFSET', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, val INTEGER)');
+  db.run('INSERT INTO test (val) VALUES (1), (2), (3), (4), (5)');
+  const result = db.exec('SELECT val FROM test ORDER BY val LIMIT 2 OFFSET 2');
+  if (result[0].values.length !== 2 || result[0].values[0][0] !== 3) {
+    throw new Error('Expected LIMIT/OFFSET to work');
+  }
+  db.close();
+});
+
+testRunner.register('supports JOIN', () => {
+  const db = createDB();
+  db.run('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run('CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, amount INTEGER)');
+  db.run("INSERT INTO users VALUES (1, 'Alice'), (2, 'Bob')");
+  db.run('INSERT INTO orders VALUES (1, 1, 100), (2, 1, 200), (3, 2, 50)');
+  const result = db.exec(`
+    SELECT users.name, SUM(orders.amount) as total
+    FROM users
+    JOIN orders ON users.id = orders.user_id
+    GROUP BY users.id
+    ORDER BY users.name
+  `);
+  if (result[0].values[0][1] !== 300 || result[0].values[1][1] !== 50) {
+    throw new Error('Expected correct JOIN results');
+  }
+  db.close();
+});
+
+testRunner.register('exports and imports database', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run("INSERT INTO test (name) VALUES ('Alice')");
+
+  const exported = db.export();
+  if (!(exported instanceof Uint8Array)) {
+    throw new Error('Expected Uint8Array from export');
+  }
+
+  const db2 = new SQL.Database(exported);
+  const result = db2.exec('SELECT name FROM test');
+  if (result[0]?.values[0][0] !== 'Alice') {
+    throw new Error('Expected imported data to match');
+  }
+
+  db.close();
+  db2.close();
+});
+
+testRunner.register('supports prepared statements', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+
+  const stmt = db.prepare('INSERT INTO test (name) VALUES (?)');
+  stmt.run(['Alice']);
+  stmt.run(['Bob']);
+  stmt.free();
+
+  const result = db.exec('SELECT COUNT(*) FROM test');
+  if (result[0].values[0][0] !== 2) {
+    throw new Error('Expected 2 rows from prepared statement inserts');
+  }
+  db.close();
+});
+
+testRunner.register('handles BLOB data', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, data BLOB)');
+  const blob = new Uint8Array([1, 2, 3, 4, 5]);
+  db.run('INSERT INTO test (data) VALUES (?)', [blob]);
+  const result = db.exec('SELECT data FROM test');
+  const retrieved = result[0].values[0][0];
+  if (!(retrieved instanceof Uint8Array) || retrieved.length !== 5) {
+    throw new Error('Expected BLOB to be retrieved correctly');
+  }
+  db.close();
+});
+
+testRunner.register('supports LIKE queries', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run("INSERT INTO test (name) VALUES ('Alice'), ('Alicia'), ('Bob')");
+  const result = db.exec("SELECT name FROM test WHERE name LIKE 'Ali%'");
+  if (result[0].values.length !== 2) {
+    throw new Error('Expected 2 rows matching LIKE pattern');
+  }
+  db.close();
+});
+
+testRunner.register('supports IN clause', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run("INSERT INTO test (name) VALUES ('Alice'), ('Bob'), ('Charlie')");
+  const result = db.exec("SELECT name FROM test WHERE name IN ('Alice', 'Charlie')");
+  if (result[0].values.length !== 2) {
+    throw new Error('Expected 2 rows from IN clause');
+  }
+  db.close();
+});
+
+testRunner.register('supports subqueries', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, val INTEGER)');
+  db.run('INSERT INTO test (val) VALUES (10), (20), (30)');
+  const result = db.exec('SELECT val FROM test WHERE val > (SELECT AVG(val) FROM test)');
+  if (result[0].values.length !== 1 || result[0].values[0][0] !== 30) {
+    throw new Error('Expected subquery to work');
+  }
+  db.close();
+});
+
+testRunner.register('supports CREATE INDEX', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run('CREATE INDEX idx_name ON test(name)');
+  const result = db.exec("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_name'");
+  if (result[0]?.values.length !== 1) {
+    throw new Error('Expected index to be created');
+  }
+  db.close();
+});
+
+testRunner.register('supports ALTER TABLE', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY)');
+  db.run('ALTER TABLE test ADD COLUMN name TEXT');
+  db.run("INSERT INTO test (name) VALUES ('Alice')");
+  const result = db.exec('SELECT name FROM test');
+  if (result[0]?.values[0][0] !== 'Alice') {
+    throw new Error('Expected ALTER TABLE to work');
+  }
+  db.close();
+});
+
+testRunner.register('supports DROP TABLE', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY)');
+  db.run('DROP TABLE test');
+  const result = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='test'");
+  if (result.length !== 0 && result[0]?.values.length !== 0) {
+    throw new Error('Expected table to be dropped');
+  }
+  db.close();
+});
+
+testRunner.register('supports CASE expressions', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, val INTEGER)');
+  db.run('INSERT INTO test (val) VALUES (10), (50), (100)');
+  const result = db.exec(`
+    SELECT val, CASE
+      WHEN val < 25 THEN 'low'
+      WHEN val < 75 THEN 'medium'
+      ELSE 'high'
+    END as level FROM test ORDER BY val
+  `);
+  const levels = result[0].values.map(r => r[1]);
+  if (levels[0] !== 'low' || levels[1] !== 'medium' || levels[2] !== 'high') {
+    throw new Error('Expected CASE to work');
+  }
+  db.close();
+});
+
+testRunner.register('supports date/time functions', () => {
+  const db = createDB();
+  const result = db.exec("SELECT date('now')");
+  if (!result[0]?.values[0][0].match(/^\d{4}-\d{2}-\d{2}$/)) {
+    throw new Error('Expected date function to work');
+  }
+  db.close();
+});
+
+testRunner.register('handles concurrent reads', () => {
+  const db = createDB();
+  db.run('CREATE TABLE test (id INTEGER PRIMARY KEY, val INTEGER)');
+  db.run('INSERT INTO test (val) VALUES (1), (2), (3)');
+
+  // Multiple reads should work
+  const r1 = db.exec('SELECT * FROM test WHERE val = 1');
+  const r2 = db.exec('SELECT * FROM test WHERE val = 2');
+  const r3 = db.exec('SELECT COUNT(*) FROM test');
+
+  if (!r1[0] || !r2[0] || r3[0].values[0][0] !== 3) {
+    throw new Error('Expected concurrent reads to work');
+  }
+  db.close();
+});
+
+// ============================================
+// INITIALIZATION
+// ============================================
+
+async function init() {
+  try {
+    await initSQL();
+    initExhibit1();
+    initExhibit2();
+    initExhibit3();
+    initExhibit4();
+    console.log('Demo initialized successfully');
+  } catch (e) {
+    console.error('Failed to initialize:', e);
+    document.body.innerHTML = `<div class="page"><div class="text-error">Failed to load SQL.js: ${e.message}</div></div>`;
+  }
+}
+
+init();
+  </script>
+</body>
+</html>
