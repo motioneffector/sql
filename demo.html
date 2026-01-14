@@ -1531,10 +1531,9 @@ VALUES ('Wireless Headphones', 'Electronics', 129.99, 15);</textarea>
 
     <footer class="test-runner">
       <div class="test-runner-header">
-        <h2 class="test-runner-title">Demo Runner</h2>
+        <h2 class="test-runner-title">Test Suite</h2>
         <div class="test-runner-actions">
-          <button class="btn btn-primary" id="run-tests">Run All Demos</button>
-          <button class="btn btn-secondary" id="run-unit-tests">Run Unit Tests</button>
+          <button class="btn btn-primary" id="run-tests">Run Tests</button>
           <button class="btn btn-secondary" onclick="location.reload()">Reset Page</button>
         </div>
       </div>
@@ -1543,10 +1542,10 @@ VALUES ('Wireless Headphones', 'Electronics', 129.99, 15);</textarea>
           <div class="test-progress-bar">
             <div class="test-progress-fill" id="progress-fill"></div>
           </div>
-          <div class="test-progress-text" id="progress-text">Ready to run demos</div>
+          <div class="test-progress-text" id="progress-text">Ready to run tests</div>
         </div>
         <div class="test-output" id="test-output">
-          <div class="test-output-empty">Click "Run All Demos" to watch all exhibits in action</div>
+          <div class="test-output-empty">Click "Run Tests" to execute the test suite</div>
         </div>
         <div class="test-summary hidden" id="test-summary">
           <div class="test-summary-item passed">
@@ -2429,10 +2428,8 @@ dropZone.addEventListener('drop', (e) => {
 });
 
 // ============================================
-// VISUAL DEMO RUNNER
+// VISUAL DEMO PLAYBACK
 // ============================================
-
-let demoRunning = false;
 
 function logDemo(message, type = 'info') {
   const output = document.getElementById('test-output');
@@ -2454,253 +2451,190 @@ function scrollToExhibit(exhibitId) {
   }
 }
 
-async function runAllDemos() {
-  if (demoRunning) return;
-  demoRunning = true;
-
-  const output = document.getElementById('test-output');
-  const progressFill = document.getElementById('progress-fill');
-  const progressText = document.getElementById('progress-text');
-  const summary = document.getElementById('test-summary');
-  const runBtn = document.getElementById('run-tests');
-  const unitBtn = document.getElementById('run-unit-tests');
-
-  runBtn.disabled = true;
-  unitBtn.disabled = true;
-  output.innerHTML = '';
-  summary.classList.add('hidden');
-  progressFill.style.width = '0%';
-  progressFill.className = 'test-progress-fill';
-
+async function runVisualDemo(progressFill, progressText) {
   const DELAY = 400; // ms between actions for visibility
 
-  try {
-    // ========== EXHIBIT 1: LIVE DATABASE ==========
-    progressText.textContent = 'Demo: Live Database';
-    progressFill.style.width = '5%';
-    scrollToExhibit('exhibit-1');
-    logDemo('Exhibit 1: Live Database', 'action');
-    await sleep(DELAY);
+  // ========== EXHIBIT 1: LIVE DATABASE ==========
+  progressText.textContent = 'Demo: Live Database';
+  progressFill.style.width = '55%';
+  scrollToExhibit('exhibit-1');
+  logDemo('Exhibit 1: Live Database', 'action');
+  await sleep(DELAY);
 
-    // Reset exhibit 1
-    initExhibit1();
-    logDemo('Reset database to initial state');
-    await sleep(DELAY);
+  // Reset exhibit 1
+  initExhibit1();
+  logDemo('Reset database to initial state');
+  await sleep(DELAY);
 
-    // Run an INSERT
-    const sqlInput = document.getElementById('sql-input');
-    sqlInput.value = "INSERT INTO products (name, category, price, stock) VALUES ('Gaming Monitor', 'Electronics', 299.99, 12);";
-    logDemo('Inserting new product: Gaming Monitor');
-    await sleep(DELAY / 2);
-    runSQL(sqlInput.value);
-    await sleep(DELAY);
+  // Run an INSERT
+  const sqlInput = document.getElementById('sql-input');
+  sqlInput.value = "INSERT INTO products (name, category, price, stock) VALUES ('Gaming Monitor', 'Electronics', 299.99, 12);";
+  logDemo('Inserting new product: Gaming Monitor');
+  await sleep(DELAY / 2);
+  runSQL(sqlInput.value);
+  await sleep(DELAY);
 
-    // Add product via button
-    progressFill.style.width = '10%';
-    logDemo('Adding product via quick button');
-    document.querySelector('[data-action="add-product"]').click();
-    await sleep(DELAY);
+  // Add product via button
+  progressFill.style.width = '58%';
+  logDemo('Adding product via quick button');
+  document.querySelector('[data-action="add-product"]').click();
+  await sleep(DELAY);
 
-    // Price increase
-    progressFill.style.width = '15%';
-    logDemo('Increasing all prices by 10%');
-    document.querySelector('[data-action="price-increase"]').click();
-    await sleep(DELAY);
+  // Price increase
+  progressFill.style.width = '60%';
+  logDemo('Increasing all prices by 10%');
+  document.querySelector('[data-action="price-increase"]').click();
+  await sleep(DELAY);
 
-    // Find expensive
-    progressFill.style.width = '20%';
-    logDemo('Finding expensive products (price > 100)');
-    document.querySelector('[data-action="find-expensive"]').click();
-    await sleep(DELAY);
+  // Find expensive
+  progressFill.style.width = '62%';
+  logDemo('Finding expensive products (price > 100)');
+  document.querySelector('[data-action="find-expensive"]').click();
+  await sleep(DELAY);
 
-    // Category stats
-    progressFill.style.width = '22%';
-    logDemo('Running category statistics query');
-    document.querySelector('[data-action="category-stats"]').click();
-    await sleep(DELAY);
+  // Remove last
+  progressFill.style.width = '64%';
+  logDemo('Removing last product');
+  document.querySelector('[data-action="remove-last"]').click();
+  await sleep(DELAY);
 
-    // Remove last
-    progressFill.style.width = '25%';
-    logDemo('Removing last product');
-    document.querySelector('[data-action="remove-last"]').click();
-    await sleep(DELAY);
+  logDemo('Exhibit 1 complete', 'success');
+  await sleep(DELAY);
 
-    logDemo('Exhibit 1 complete', 'success');
-    await sleep(DELAY);
+  // ========== EXHIBIT 2: DATA GRID ==========
+  progressText.textContent = 'Demo: Data Grid';
+  progressFill.style.width = '68%';
+  scrollToExhibit('exhibit-2');
+  logDemo('Exhibit 2: Data Grid', 'action');
+  await sleep(DELAY);
 
-    // ========== EXHIBIT 2: DATA GRID ==========
-    progressText.textContent = 'Demo: Data Grid';
-    progressFill.style.width = '30%';
-    scrollToExhibit('exhibit-2');
-    logDemo('Exhibit 2: Data Grid', 'action');
-    await sleep(DELAY);
+  // Reset exhibit 2
+  initExhibit2();
+  logDemo('Reset data grid');
+  await sleep(DELAY);
 
-    // Reset exhibit 2
-    initExhibit2();
-    logDemo('Reset data grid');
-    await sleep(DELAY);
+  // Quick add rows
+  progressFill.style.width = '70%';
+  logDemo('Adding rows via Quick Add');
+  document.getElementById('quick-add').click();
+  await sleep(DELAY);
+  document.getElementById('quick-add').click();
+  await sleep(DELAY);
 
-    // Quick add rows
-    progressFill.style.width = '35%';
-    logDemo('Adding rows via Quick Add');
-    document.getElementById('quick-add').click();
-    await sleep(DELAY);
-    document.getElementById('quick-add').click();
-    await sleep(DELAY);
-
-    // Edit a cell
-    progressFill.style.width = '40%';
-    logDemo('Editing a cell value');
-    const firstEditableCell = document.querySelector('#grid-body td[contenteditable="true"]');
-    if (firstEditableCell) {
-      firstEditableCell.focus();
-      firstEditableCell.textContent = 'Edited Product Name';
-      firstEditableCell.blur();
-    }
-    await sleep(DELAY);
-
-    // Switch to categories table
-    progressFill.style.width = '42%';
-    logDemo('Switching to categories table');
-    document.getElementById('table-select').value = 'categories';
-    document.getElementById('table-select').dispatchEvent(new Event('change'));
-    await sleep(DELAY);
-
-    // Switch back
-    logDemo('Switching back to products table');
-    document.getElementById('table-select').value = 'products';
-    document.getElementById('table-select').dispatchEvent(new Event('change'));
-    await sleep(DELAY);
-
-    logDemo('Exhibit 2 complete', 'success');
-    await sleep(DELAY);
-
-    // ========== EXHIBIT 3: TRANSACTION VISUALIZER ==========
-    progressText.textContent = 'Demo: Transaction Visualizer';
-    progressFill.style.width = '50%';
-    scrollToExhibit('exhibit-3');
-    logDemo('Exhibit 3: Transaction Visualizer', 'action');
-    await sleep(DELAY);
-
-    // Reset exhibit 3
-    initExhibit3();
-    logDemo('Reset transaction state');
-    await sleep(DELAY);
-
-    // Begin transaction
-    progressFill.style.width = '55%';
-    logDemo('BEGIN transaction');
-    beginTransaction();
-    await sleep(DELAY);
-
-    // Transfer 1
-    progressFill.style.width = '60%';
-    logDemo('Transfer $50 from Alice to Bob');
-    addOperation('Alice', 'Bob', 50);
-    await sleep(DELAY);
-
-    // Transfer 2
-    progressFill.style.width = '65%';
-    logDemo('Transfer $25 from Bob to Charlie');
-    addOperation('Bob', 'Charlie', 25);
-    await sleep(DELAY);
-
-    // Rollback
-    progressFill.style.width = '70%';
-    logDemo('ROLLBACK - watch balances restore!');
-    rollbackTransaction();
-    await sleep(800); // Longer wait for rollback animation
-
-    // Now demonstrate commit
-    logDemo('Starting new transaction to demonstrate COMMIT');
-    await sleep(DELAY);
-    beginTransaction();
-    await sleep(DELAY);
-
-    progressFill.style.width = '72%';
-    logDemo('Transfer $30 from Charlie to Alice');
-    addOperation('Charlie', 'Alice', 30);
-    await sleep(DELAY);
-
-    progressFill.style.width = '75%';
-    logDemo('COMMIT - changes are permanent');
-    commitTransaction();
-    await sleep(DELAY);
-
-    logDemo('Exhibit 3 complete', 'success');
-    await sleep(DELAY);
-
-    // ========== EXHIBIT 4: PERSISTENCE PROOF ==========
-    progressText.textContent = 'Demo: Persistence Proof';
-    progressFill.style.width = '80%';
-    scrollToExhibit('exhibit-4');
-    logDemo('Exhibit 4: Persistence Proof', 'action');
-    await sleep(DELAY);
-
-    // Reset exhibit 4
-    initExhibit4();
-    logDemo('Reset persistence demo');
-    await sleep(DELAY);
-
-    // Add some notes
-    progressFill.style.width = '85%';
-    logDemo('Adding notes to database');
-    for (let i = 0; i < 2; i++) {
-      document.getElementById('add-note').click();
-      await sleep(DELAY / 2);
-    }
-    await sleep(DELAY);
-
-    // Save
-    progressFill.style.width = '88%';
-    logDemo('Saving database to storage');
-    saveDatabase();
-    await sleep(DELAY);
-
-    // Destroy & Restore
-    progressFill.style.width = '90%';
-    logDemo('DESTROY & RESTORE - the ultimate persistence test!');
-    await sleep(DELAY / 2);
-
-    // Trigger destroy & restore
-    const destroyBtn = document.getElementById('destroy-restore');
-    destroyBtn.click();
-
-    // Wait for the full animation
-    await sleep(3500);
-
-    progressFill.style.width = '95%';
-    logDemo('Data survived destruction!', 'success');
-    await sleep(DELAY);
-
-    logDemo('Exhibit 4 complete', 'success');
-    await sleep(DELAY);
-
-    // ========== COMPLETE ==========
-    progressFill.style.width = '100%';
-    progressFill.classList.add('success');
-    progressText.textContent = 'All demos complete!';
-    logDemo('All 4 exhibits demonstrated successfully', 'success');
-
-    // Show summary
-    document.getElementById('passed-count').textContent = '4';
-    document.getElementById('failed-count').textContent = '0';
-    document.getElementById('skipped-count').textContent = '0';
-    summary.classList.remove('hidden');
-
-  } catch (e) {
-    progressFill.classList.add('failure');
-    progressText.textContent = 'Demo failed: ' + e.message;
-    logDemo('Error: ' + e.message, 'error');
+  // Edit a cell
+  progressFill.style.width = '72%';
+  logDemo('Editing a cell value');
+  const firstEditableCell = document.querySelector('#grid-body td[contenteditable="true"]');
+  if (firstEditableCell) {
+    firstEditableCell.focus();
+    firstEditableCell.textContent = 'Edited Product Name';
+    firstEditableCell.blur();
   }
+  await sleep(DELAY);
 
-  runBtn.disabled = false;
-  unitBtn.disabled = false;
-  demoRunning = false;
+  logDemo('Exhibit 2 complete', 'success');
+  await sleep(DELAY);
+
+  // ========== EXHIBIT 3: TRANSACTION VISUALIZER ==========
+  progressText.textContent = 'Demo: Transaction Visualizer';
+  progressFill.style.width = '76%';
+  scrollToExhibit('exhibit-3');
+  logDemo('Exhibit 3: Transaction Visualizer', 'action');
+  await sleep(DELAY);
+
+  // Reset exhibit 3
+  initExhibit3();
+  logDemo('Reset transaction state');
+  await sleep(DELAY);
+
+  // Begin transaction
+  progressFill.style.width = '78%';
+  logDemo('BEGIN transaction');
+  beginTransaction();
+  await sleep(DELAY);
+
+  // Transfer 1
+  logDemo('Transfer $50 from Alice to Bob');
+  addOperation('Alice', 'Bob', 50);
+  await sleep(DELAY);
+
+  // Transfer 2
+  progressFill.style.width = '80%';
+  logDemo('Transfer $25 from Bob to Charlie');
+  addOperation('Bob', 'Charlie', 25);
+  await sleep(DELAY);
+
+  // Rollback
+  progressFill.style.width = '82%';
+  logDemo('ROLLBACK - watch balances restore!');
+  rollbackTransaction();
+  await sleep(800); // Longer wait for rollback animation
+
+  // Now demonstrate commit
+  logDemo('Starting new transaction to demonstrate COMMIT');
+  await sleep(DELAY);
+  beginTransaction();
+  await sleep(DELAY);
+
+  logDemo('Transfer $30 from Charlie to Alice');
+  addOperation('Charlie', 'Alice', 30);
+  await sleep(DELAY);
+
+  progressFill.style.width = '84%';
+  logDemo('COMMIT - changes are permanent');
+  commitTransaction();
+  await sleep(DELAY);
+
+  logDemo('Exhibit 3 complete', 'success');
+  await sleep(DELAY);
+
+  // ========== EXHIBIT 4: PERSISTENCE PROOF ==========
+  progressText.textContent = 'Demo: Persistence Proof';
+  progressFill.style.width = '88%';
+  scrollToExhibit('exhibit-4');
+  logDemo('Exhibit 4: Persistence Proof', 'action');
+  await sleep(DELAY);
+
+  // Reset exhibit 4
+  initExhibit4();
+  logDemo('Reset persistence demo');
+  await sleep(DELAY);
+
+  // Add some notes
+  progressFill.style.width = '90%';
+  logDemo('Adding notes to database');
+  for (let i = 0; i < 2; i++) {
+    document.getElementById('add-note').click();
+    await sleep(DELAY / 2);
+  }
+  await sleep(DELAY);
+
+  // Save
+  logDemo('Saving database to storage');
+  saveDatabase();
+  await sleep(DELAY);
+
+  // Destroy & Restore
+  progressFill.style.width = '92%';
+  logDemo('DESTROY & RESTORE - the ultimate persistence test!');
+  await sleep(DELAY / 2);
+
+  // Trigger destroy & restore
+  const destroyBtn = document.getElementById('destroy-restore');
+  destroyBtn.click();
+
+  // Wait for the full animation
+  await sleep(3500);
+
+  progressFill.style.width = '98%';
+  logDemo('Data survived destruction!', 'success');
+  await sleep(DELAY);
+
+  logDemo('Exhibit 4 complete', 'success');
 }
 
 // ============================================
-// UNIT TEST RUNNER
+// TEST RUNNER
 // ============================================
 
 const testRunner = {
@@ -2725,10 +2659,8 @@ const testRunner = {
     const failedCount = document.getElementById('failed-count')
     const skippedCount = document.getElementById('skipped-count')
     const runBtn = document.getElementById('run-tests')
-    const unitBtn = document.getElementById('run-unit-tests')
 
     runBtn.disabled = true
-    unitBtn.disabled = true
     output.innerHTML = ''
     summary.classList.add('hidden')
     progressFill.style.width = '0%'
@@ -2737,9 +2669,10 @@ const testRunner = {
     let passed = 0
     let failed = 0
 
+    // Phase 1: Run unit tests (0-50% of progress bar)
     for (let i = 0; i < this.tests.length; i++) {
       const test = this.tests[i]
-      const progress = ((i + 1) / this.tests.length) * 100
+      const progress = ((i + 1) / this.tests.length) * 50 // First half of progress bar
 
       progressFill.style.width = `${progress}%`
       progressText.textContent = `Running: ${test.name}`
@@ -2768,15 +2701,35 @@ const testRunner = {
         `
       }
 
-      // Scroll to bottom
       output.scrollTop = output.scrollHeight
-
-      // Small delay so user can see progress
       await new Promise(r => setTimeout(r, 20))
     }
 
+    // Show unit test results
+    progressText.textContent = `Unit tests: ${passed}/${this.tests.length} passed`
+    await sleep(500)
+
+    // Phase 2: Visual demo playback (50-100% of progress bar)
+    output.innerHTML += `
+      <div class="test-item" style="border-top: 1px solid var(--border-default); margin-top: 8px; padding-top: 12px;">
+        <span class="test-icon">&#9654;</span>
+        <span class="test-name" style="font-weight: 600;">Starting visual demo playback...</span>
+      </div>
+    `
+    output.scrollTop = output.scrollHeight
+    await sleep(300)
+
+    try {
+      await runVisualDemo(progressFill, progressText)
+      logDemo('Visual demo complete', 'success')
+    } catch (e) {
+      logDemo('Demo error: ' + e.message, 'error')
+    }
+
+    // Final summary
+    progressFill.style.width = '100%'
     progressFill.classList.add(failed === 0 ? 'success' : 'failure')
-    progressText.textContent = `Complete: ${passed}/${this.tests.length} passed`
+    progressText.textContent = `Complete: ${passed}/${this.tests.length} tests passed + 4 demos`
 
     passedCount.textContent = passed
     failedCount.textContent = failed
@@ -2784,7 +2737,6 @@ const testRunner = {
     summary.classList.remove('hidden')
 
     runBtn.disabled = false
-    unitBtn.disabled = false
     this.running = false
   }
 }
@@ -2797,8 +2749,7 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
 }
 
-document.getElementById('run-tests').addEventListener('click', () => runAllDemos())
-document.getElementById('run-unit-tests').addEventListener('click', () => testRunner.run())
+document.getElementById('run-tests').addEventListener('click', () => testRunner.run())
 
 // ============================================
 // REGISTER TESTS
