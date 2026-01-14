@@ -248,10 +248,10 @@ describe('Large Data', () => {
     db.close()
   })
 
-  it('handles table with 100,000 rows', () => {
+  it('handles table with 100,000 rows', async () => {
     db.exec('CREATE TABLE large (id INTEGER, value INTEGER)')
 
-    db.transaction(() => {
+    await db.transaction(() => {
       for (let i = 0; i < 100000; i++) {
         db.run('INSERT INTO large VALUES (?, ?)', [i, i * 2])
       }
