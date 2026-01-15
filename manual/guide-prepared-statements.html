@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prepared Statements - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Prepared Statements</h1>
+<p>Prepared statements parse SQL once and execute many times with different parameters. Use them when you need to run the same query repeatedly for better performance.</p>
+<h2>Prerequisites</h2>
+<p>Before starting, you should:</p>
+<ul>
+<li><a href="concept-query-methods.html">Understand query methods</a></li>
+</ul>
+<h2>Overview</h2>
+<p>We&#39;ll use prepared statements by:</p>
+<ol>
+<li>Understanding when they help</li>
+<li>Creating and using statements</li>
+<li>Cleaning up properly</li>
+<li>Optimizing batch operations</li>
+</ol>
+<h2>Step 1: Know When to Use Prepared Statements</h2>
+<p>Prepared statements help when:</p>
+<ul>
+<li>Running the same query many times (batch inserts, repeated lookups)</li>
+<li>Performance is critical (tight loops, real-time operations)</li>
+<li>You want to separate SQL parsing from execution</li>
+</ul>
+<p>Don&#39;t bother with prepared statements for:</p>
+<ul>
+<li>One-off queries</li>
+<li>Queries that run occasionally</li>
+<li>Simple CRUD (use table helpers instead)</li>
+</ul>
+<h2>Step 2: Create and Use a Statement</h2>
+<p>Call <code>db.prepare()</code> with your SQL, then execute with <code>run()</code>, <code>get()</code>, or <code>all()</code>:</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+const db = await createDatabase()
+db.exec(&#39;CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, score INTEGER)&#39;)
+
+// Prepare once
+const stmt = db.prepare&lt;{ id: number; name: string; score: number }&gt;(
+  &#39;SELECT * FROM users WHERE score &gt; ?&#39;
+)
+
+// Execute many times
+const highScorers = stmt.all([100])
+const eliteScorers = stmt.all([500])
+
+// Always finalize when done
+stmt.finalize()
+</code></pre>
+<h2>Step 3: Clean Up Properly</h2>
+<p>Always call <code>finalize()</code> when you&#39;re done with a statement. This releases memory:</p>
+<pre><code class="language-typescript">const stmt = db.prepare(&#39;INSERT INTO logs (message) VALUES (?)&#39;)
+
+try {
+  for (const message of messages) {
+    stmt.run([message])
+  }
+} finally {
+  stmt.finalize()
+}
+</code></pre>
+<p>After <code>finalize()</code>, the statement can&#39;t be used. Calling methods throws an error.</p>
+<h2>Step 4: Optimize Batch Operations</h2>
+<p>Prepared statements shine for bulk inserts:</p>
+<pre><code class="language-typescript">const db = await createDatabase()
+db.exec(&#39;CREATE TABLE events (id INTEGER PRIMARY KEY, type TEXT, timestamp TEXT)&#39;)
+
+const events = generateEvents(10000) // Array of 10,000 events
+
+// Fast: Prepare once, execute many
+console.time(&#39;prepared&#39;)
+const stmt = db.prepare(&#39;INSERT INTO events (type, timestamp) VALUES (?, ?)&#39;)
+for (const event of events) {
+  stmt.run([event.type, event.timestamp])
+}
+stmt.finalize()
+console.timeEnd(&#39;prepared&#39;) // ~100ms
+
+// Slower: Parse SQL each time
+console.time(&#39;unprepared&#39;)
+for (const event of events) {
+  db.run(&#39;INSERT INTO events (type, timestamp) VALUES (?, ?)&#39;, [event.type, event.timestamp])
+}
+console.timeEnd(&#39;unprepared&#39;) // ~200ms
+</code></pre>
+<h2>Complete Example</h2>
+<p>Batch insert with transaction and prepared statement:</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+interface Product {
+  sku: string
+  name: string
+  price: number
+}
+
+async function importProducts(db: Database, products: Product[]): Promise&lt;number&gt; {
+  let imported = 0
+
+  await db.transaction(() =&gt; {
+    const stmt = db.prepare(
+      &#39;INSERT OR REPLACE INTO products (sku, name, price) VALUES (?, ?, ?)&#39;
+    )
+
+    try {
+      for (const product of products) {
+        const result = stmt.run([product.sku, product.name, product.price])
+        imported += result.changes
+      }
+    } finally {
+      stmt.finalize()
+    }
+  })
+
+  return imported
+}
+
+// Usage
+const db = await createDatabase()
+db.exec(&#39;CREATE TABLE products (sku TEXT PRIMARY KEY, name TEXT, price REAL)&#39;)
+
+const count = await importProducts(db, [
+  { sku: &#39;WIDGET-001&#39;, name: &#39;Widget&#39;, price: 29.99 },
+  { sku: &#39;GADGET-001&#39;, name: &#39;Gadget&#39;, price: 49.99 },
+  // ... thousands more
+])
+
+console.log(`Imported ${count} products`)
+</code></pre>
+<h2>Variations</h2>
+<h3>Query with Different Parameters</h3>
+<p>Rebind parameters for each execution:</p>
+<pre><code class="language-typescript">const stmt = db.prepare&lt;{ id: number; name: string }&gt;(
+  &#39;SELECT * FROM users WHERE id = ?&#39;
+)
+
+const user1 = stmt.get([1])
+const user2 = stmt.get([2])
+const user3 = stmt.get([3])
+
+stmt.finalize()
+</code></pre>
+<h3>Named Parameters</h3>
+<p>Use named parameters for clarity:</p>
+<pre><code class="language-typescript">const stmt = db.prepare(
+  &#39;INSERT INTO users (name, email, role) VALUES (:name, :email, :role)&#39;
+)
+
+stmt.run({ name: &#39;Alice&#39;, email: &#39;alice@example.com&#39;, role: &#39;admin&#39; })
+stmt.run({ name: &#39;Bob&#39;, email: &#39;bob@example.com&#39;, role: &#39;user&#39; })
+
+stmt.finalize()
+</code></pre>
+<h3>Multiple Statements for Different Operations</h3>
+<p>Prepare several statements upfront:</p>
+<pre><code class="language-typescript">const insertUser = db.prepare(&#39;INSERT INTO users (name) VALUES (?)&#39;)
+const updateScore = db.prepare(&#39;UPDATE users SET score = score + ? WHERE id = ?&#39;)
+const findByName = db.prepare&lt;{ id: number }&gt;(&#39;SELECT id FROM users WHERE name = ?&#39;)
+
+try {
+  // Use them as needed
+  insertUser.run([&#39;Alice&#39;])
+  const alice = findByName.get([&#39;Alice&#39;])
+  if (alice) {
+    updateScore.run([100, alice.id])
+  }
+} finally {
+  insertUser.finalize()
+  updateScore.finalize()
+  findByName.finalize()
+}
+</code></pre>
+<h3>Using insertMany for Bulk Inserts</h3>
+<p>For the common case of inserting many rows, use <code>db.insertMany()</code> instead:</p>
+<pre><code class="language-typescript">// Simpler alternative to prepared statements for bulk inserts
+const ids = db.insertMany(&#39;users&#39;, [
+  { name: &#39;Alice&#39;, email: &#39;alice@example.com&#39; },
+  { name: &#39;Bob&#39;, email: &#39;bob@example.com&#39; },
+  { name: &#39;Charlie&#39;, email: &#39;charlie@example.com&#39; }
+])
+</code></pre>
+<p>This uses prepared statements and transactions internally.</p>
+<h2>Troubleshooting</h2>
+<h3>Statement has been finalized</h3>
+<p><strong>Symptom:</strong> <code>Error: Statement has been finalized</code></p>
+<p><strong>Cause:</strong> Calling methods on a statement after <code>finalize()</code>.</p>
+<p><strong>Solution:</strong> Keep track of statement lifecycle. Create a new statement if needed.</p>
+<h3>Memory Leak Warning</h3>
+<p><strong>Symptom:</strong> Memory usage grows over time.</p>
+<p><strong>Cause:</strong> Creating statements without finalizing them.</p>
+<p><strong>Solution:</strong> Always call <code>finalize()</code> in a <code>finally</code> block or use try/finally pattern.</p>
+<h3>No Performance Improvement</h3>
+<p><strong>Symptom:</strong> Prepared statements aren&#39;t faster than regular queries.</p>
+<p><strong>Cause:</strong> Not enough iterations to offset setup cost, or SQL is trivial.</p>
+<p><strong>Solution:</strong> Prepared statements help most with 100+ executions. For small batches, the overhead isn&#39;t worth it.</p>
+<h2>See Also</h2>
+<ul>
+<li><strong><a href="concept-query-methods.html">Query Methods</a></strong> - Regular query methods</li>
+<li><strong><a href="api-prepared-statements.html">Prepared Statements API</a></strong> - Method reference</li>
+<li><strong><a href="api-batch-operations.html">Batch Operations</a></strong> - insertMany for bulk inserts</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

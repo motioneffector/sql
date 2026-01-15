@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Migration Methods API - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Migration Methods API</h1>
+<p>Methods for schema versioning and migrations.</p>
+<hr>
+<h2><code>migrate()</code></h2>
+<p>Applies pending migrations to the database.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">migrate(migrations: Migration[]): Promise&lt;number[]&gt;
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>migrations</code></td>
+<td><code>Migration[]</code></td>
+<td>Yes</td>
+<td>Array of migration definitions</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>Promise&lt;number[]&gt;</code> — Array of version numbers that were applied</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const migrations: Migration[] = [
+  {
+    version: 1,
+    up: &#39;CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)&#39;,
+    down: &#39;DROP TABLE users&#39;
+  },
+  {
+    version: 2,
+    up: &#39;ALTER TABLE users ADD COLUMN email TEXT&#39;,
+    down: &#39;ALTER TABLE users DROP COLUMN email&#39;
+  }
+]
+
+const applied = await db.migrate(migrations)
+console.log(applied) // [1, 2] first time, [] subsequently
+</code></pre>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Creates <code>_migrations</code> table if it doesn&#39;t exist</li>
+<li>Runs migrations in ascending version order</li>
+<li>Skips already-applied migrations</li>
+<li>Each migration runs in its own transaction</li>
+<li>Records each successful migration with timestamp</li>
+</ul>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>Error</code> — If version is not a positive integer</li>
+<li><code>Error</code> — If duplicate versions exist</li>
+<li><code>Error</code> — If migration is missing <code>up</code> script</li>
+<li><code>MigrationError</code> — If migration SQL fails (includes version number)</li>
+</ul>
+<hr>
+<h2><code>rollback()</code></h2>
+<p>Reverts migrations back to a target version.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">rollback(targetVersion?: number, migrations?: Migration[]): Promise&lt;number[]&gt;
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>targetVersion</code></td>
+<td><code>number</code></td>
+<td>No</td>
+<td>Version to roll back to. Default: <code>0</code> (all)</td>
+</tr>
+<tr>
+<td><code>migrations</code></td>
+<td><code>Migration[]</code></td>
+<td>No</td>
+<td>Migrations with <code>down</code> scripts</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>Promise&lt;number[]&gt;</code> — Array of version numbers that were rolled back</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">// Roll back to version 1
+const rolledBack = await db.rollback(1, migrations)
+console.log(rolledBack) // [3, 2] (rolled back in descending order)
+
+// Roll back everything
+await db.rollback(0, migrations)
+
+// Roll back without target (same as 0)
+await db.rollback(undefined, migrations)
+</code></pre>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Runs <code>down</code> scripts in descending version order</li>
+<li>Removes entries from <code>_migrations</code> table</li>
+<li>Each rollback runs in its own transaction</li>
+</ul>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>MigrationError</code> — If target version is negative</li>
+<li><code>MigrationError</code> — If target version &gt; current version</li>
+<li><code>MigrationError</code> — If migration has no <code>down</code> script</li>
+<li><code>MigrationError</code> — If rollback SQL fails</li>
+</ul>
+<hr>
+<h2><code>getMigrationVersion()</code></h2>
+<p>Returns the current migration version.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">getMigrationVersion(): number
+</code></pre>
+<p><strong>Returns:</strong> <code>number</code> — Highest applied migration version, or <code>0</code> if none applied</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const version = db.getMigrationVersion()
+console.log(`Database at version ${version}`)
+
+if (version &lt; 5) {
+  console.log(&#39;Database needs update&#39;)
+}
+</code></pre>
+<hr>
+<h2>Types</h2>
+<h3><code>Migration</code></h3>
+<pre><code class="language-typescript">interface Migration {
+  version: number
+  up: string
+  down?: string
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>version</code></td>
+<td><code>number</code></td>
+<td>Yes</td>
+<td>Version number (must be &gt;= 1)</td>
+</tr>
+<tr>
+<td><code>up</code></td>
+<td><code>string</code></td>
+<td>Yes</td>
+<td>SQL to apply the migration</td>
+</tr>
+<tr>
+<td><code>down</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td>SQL to reverse the migration</td>
+</tr>
+</tbody></table>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

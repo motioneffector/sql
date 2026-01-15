@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Types API - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Types API</h1>
+<p>TypeScript type definitions exported by the library.</p>
+<hr>
+<h2><code>Database</code></h2>
+<p>The main database interface returned by <code>createDatabase()</code>.</p>
+<pre><code class="language-typescript">interface Database {
+  // Query methods
+  run(sql: string | SqlTemplate, params?: ParamArray | ParamObject): RunResult
+  get&lt;T extends Record&lt;string, unknown&gt;&gt;(sql: string | SqlTemplate, params?: ParamArray | ParamObject): T | undefined
+  all&lt;T extends Record&lt;string, unknown&gt;&gt;(sql: string | SqlTemplate, params?: ParamArray | ParamObject): T[]
+  exec(sql: string): void
+
+  // Migrations
+  migrate(migrations: Migration[]): Promise&lt;number[]&gt;
+  rollback(targetVersion?: number, migrations?: Migration[]): Promise&lt;number[]&gt;
+  getMigrationVersion(): number
+
+  // Transactions
+  transaction&lt;T&gt;(fn: () =&gt; T | Promise&lt;T&gt;): Promise&lt;T&gt;
+  readonly inTransaction: boolean
+
+  // Table helper
+  table&lt;T extends Record&lt;string, unknown&gt;&gt;(tableName: string, options?: TableOptions): TableHelper&lt;T&gt;
+
+  // Export/Import
+  export(): Uint8Array
+  import(data: Uint8Array | ArrayBuffer): void
+
+  // Persistence
+  save(): Promise&lt;void&gt;
+  load(): Promise&lt;void&gt;
+
+  // Database info
+  getTables(): string[]
+  getTableInfo(tableName: string): ColumnInfo[]
+  getIndexes(tableName?: string): IndexInfo[]
+
+  // Management
+  close(): void
+  clone(): Promise&lt;Database&gt;
+  clear(): void
+  destroy(): Promise&lt;void&gt;
+
+  // Query building
+  sql(strings: TemplateStringsArray, ...values: unknown[]): SqlTemplate
+
+  // Prepared statements
+  prepare&lt;T&gt;(sql: string): PreparedStatement&lt;T&gt;
+
+  // Batch operations
+  insertMany(tableName: string, rows: Record&lt;string, unknown&gt;[]): number[]
+}
+</code></pre>
+<hr>
+<h2><code>DatabaseOptions</code></h2>
+<p>Configuration for <code>createDatabase()</code>.</p>
+<pre><code class="language-typescript">interface DatabaseOptions {
+  data?: Uint8Array
+  wasmPath?: string
+  persist?: PersistConfig
+  autoSave?: boolean
+  autoSaveDebounce?: number
+}
+</code></pre>
+<hr>
+<h2><code>PersistConfig</code></h2>
+<p>Persistence configuration.</p>
+<pre><code class="language-typescript">interface PersistConfig {
+  key: string
+  storage: &#39;indexeddb&#39; | &#39;localstorage&#39; | StorageAdapter
+}
+</code></pre>
+<hr>
+<h2><code>StorageAdapter</code></h2>
+<p>Interface for custom storage backends.</p>
+<pre><code class="language-typescript">interface StorageAdapter {
+  getItem(key: string): Promise&lt;Uint8Array | null&gt;
+  setItem(key: string, value: Uint8Array): Promise&lt;void&gt;
+  removeItem(key: string): Promise&lt;void&gt;
+}
+</code></pre>
+<hr>
+<h2><code>RunResult</code></h2>
+<p>Result from mutation operations.</p>
+<pre><code class="language-typescript">interface RunResult {
+  changes: number
+  lastInsertRowId: number
+}
+</code></pre>
+<hr>
+<h2><code>ParamArray</code></h2>
+<p>Positional query parameters.</p>
+<pre><code class="language-typescript">type ParamArray = unknown[]
+</code></pre>
+<hr>
+<h2><code>ParamObject</code></h2>
+<p>Named query parameters.</p>
+<pre><code class="language-typescript">type ParamObject = Record&lt;string, unknown&gt;
+</code></pre>
+<hr>
+<h2><code>Migration</code></h2>
+<p>Schema migration definition.</p>
+<pre><code class="language-typescript">interface Migration {
+  version: number
+  up: string
+  down?: string
+}
+</code></pre>
+<hr>
+<h2><code>TableOptions</code></h2>
+<p>Configuration for table helpers.</p>
+<pre><code class="language-typescript">interface TableOptions {
+  primaryKey?: string
+}
+</code></pre>
+<hr>
+<h2><code>TableHelper&lt;T&gt;</code></h2>
+<p>High-level CRUD interface.</p>
+<pre><code class="language-typescript">interface TableHelper&lt;T extends Record&lt;string, unknown&gt;&gt; {
+  insert(data: Partial&lt;T&gt;): number
+  find(id: unknown, options?: { key?: string }): T | undefined
+  where(conditions: Partial&lt;T&gt;): T[]
+  update(id: unknown, data: Partial&lt;T&gt;, options?: { key?: string }): number
+  delete(id: unknown, options?: { key?: string }): number
+  count(conditions?: Partial&lt;T&gt;): number
+  all(): T[]
+}
+</code></pre>
+<hr>
+<h2><code>ColumnInfo</code></h2>
+<p>Column metadata from schema introspection.</p>
+<pre><code class="language-typescript">interface ColumnInfo {
+  name: string
+  type: string
+  nullable: boolean
+  defaultValue: unknown
+  primaryKey: boolean
+}
+</code></pre>
+<hr>
+<h2><code>IndexInfo</code></h2>
+<p>Index metadata from schema introspection.</p>
+<pre><code class="language-typescript">interface IndexInfo {
+  name: string
+  table: string
+  unique: boolean
+  columns: string[]
+}
+</code></pre>
+<hr>
+<h2><code>SqlTemplate</code></h2>
+<p>Result of the <code>db.sql</code> tagged template.</p>
+<pre><code class="language-typescript">interface SqlTemplate {
+  sql: string
+  params: unknown[]
+}
+</code></pre>
+<hr>
+<h2><code>PreparedStatement&lt;T&gt;</code></h2>
+<p>Reusable compiled query.</p>
+<pre><code class="language-typescript">interface PreparedStatement&lt;T&gt; {
+  run(params?: ParamArray | ParamObject): RunResult
+  get(params?: ParamArray | ParamObject): T | undefined
+  all(params?: ParamArray | ParamObject): T[]
+  finalize(): void
+}
+</code></pre>
+<hr>
+<h2>Importing Types</h2>
+<p>All types are exported from the main module:</p>
+<pre><code class="language-typescript">import type {
+  Database,
+  DatabaseOptions,
+  PersistConfig,
+  StorageAdapter,
+  RunResult,
+  ParamArray,
+  ParamObject,
+  Migration,
+  TableOptions,
+  TableHelper,
+  ColumnInfo,
+  IndexInfo,
+  SqlTemplate,
+  PreparedStatement,
+} from &#39;@motioneffector/sql&#39;
+</code></pre>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

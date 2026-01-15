@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persistence - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Persistence</h1>
+<p>By default, your database exists only in memory and is lost when the page closes. Persistence saves the database to browser storage so it survives page reloads, browser restarts, and even device reboots.</p>
+<h2>How It Works</h2>
+<p>Configure persistence when creating the database:</p>
+<pre><code class="language-typescript">const db = await createDatabase({
+  persist: {
+    key: &#39;my-app-db&#39;,    // Storage key
+    storage: &#39;indexeddb&#39;  // &#39;indexeddb&#39; or &#39;localstorage&#39;
+  }
+})
+</code></pre>
+<p>With persistence enabled:</p>
+<ol>
+<li>On creation, existing data is loaded from storage</li>
+<li>After each mutation, changes are scheduled to save</li>
+<li>Saves are debounced (default 1000ms) to batch rapid changes</li>
+<li>The entire database is serialized as a Uint8Array blob</li>
+</ol>
+<p>You can also manually control saving and loading with <code>db.save()</code> and <code>db.load()</code>.</p>
+<h2>Basic Usage</h2>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+// Persistent database with IndexedDB
+const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+})
+
+// Make changes - they auto-save
+db.run(&#39;INSERT INTO notes (text) VALUES (?)&#39;, [&#39;Hello world&#39;])
+
+// Data survives page reload
+</code></pre>
+<h2>Key Points</h2>
+<ul>
+<li><strong>IndexedDB recommended</strong> - Larger storage limits (~50MB+), async-friendly</li>
+<li><strong>localStorage for small data</strong> - Limited to ~5MB, simpler but slower for large databases</li>
+<li><strong>Auto-save is debounced</strong> - Rapid changes batch into fewer writes</li>
+<li><strong>Manual control available</strong> - Use <code>db.save()</code> to force immediate save, <code>db.load()</code> to discard changes</li>
+<li><strong>Graceful degradation</strong> - Storage failures are logged but don&#39;t crash your app</li>
+</ul>
+<h2>Examples</h2>
+<h3>Choosing a Storage Backend</h3>
+<p>IndexedDB for most applications:</p>
+<pre><code class="language-typescript">const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+})
+</code></pre>
+<p>localStorage for simple cases or compatibility:</p>
+<pre><code class="language-typescript">const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;localstorage&#39; }
+})
+</code></pre>
+<h3>Disabling Auto-Save</h3>
+<p>Control exactly when data is saved:</p>
+<pre><code class="language-typescript">const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; },
+  autoSave: false
+})
+
+// Make many changes...
+db.run(&#39;INSERT INTO items (name) VALUES (?)&#39;, [&#39;One&#39;])
+db.run(&#39;INSERT INTO items (name) VALUES (?)&#39;, [&#39;Two&#39;])
+
+// Save when ready
+await db.save()
+</code></pre>
+<h3>Adjusting Debounce Timing</h3>
+<p>Save more or less frequently:</p>
+<pre><code class="language-typescript">// Save quickly (100ms after last change)
+const db = await createDatabase({
+  persist: { key: &#39;realtime-app&#39;, storage: &#39;indexeddb&#39; },
+  autoSaveDebounce: 100
+})
+
+// Save rarely (5 seconds after last change)
+const db = await createDatabase({
+  persist: { key: &#39;batch-app&#39;, storage: &#39;indexeddb&#39; },
+  autoSaveDebounce: 5000
+})
+</code></pre>
+<h3>Discarding Changes</h3>
+<p>Reload from storage to undo in-memory changes:</p>
+<pre><code class="language-typescript">// User made some changes
+db.run(&#39;DELETE FROM important_data WHERE id = 1&#39;)
+
+// User clicks &quot;Cancel&quot;
+await db.load() // Reverts to last saved state
+</code></pre>
+<h3>Custom Storage Adapter</h3>
+<p>Implement your own storage backend:</p>
+<pre><code class="language-typescript">import type { StorageAdapter } from &#39;@motioneffector/sql&#39;
+
+const cloudStorage: StorageAdapter = {
+  async getItem(key) {
+    const response = await fetch(`/api/db/${key}`)
+    if (!response.ok) return null
+    return new Uint8Array(await response.arrayBuffer())
+  },
+  async setItem(key, value) {
+    await fetch(`/api/db/${key}`, {
+      method: &#39;PUT&#39;,
+      body: value
+    })
+  },
+  async removeItem(key) {
+    await fetch(`/api/db/${key}`, { method: &#39;DELETE&#39; })
+  }
+}
+
+const db = await createDatabase({
+  persist: { key: &#39;user-123&#39;, storage: cloudStorage }
+})
+</code></pre>
+<h2>Related</h2>
+<ul>
+<li><strong><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></strong> - Step-by-step configuration guide</li>
+<li><strong><a href="guide-export-and-import.html">Export and Import</a></strong> - File-based backup alternative</li>
+<li><strong><a href="api-persistence-methods.html">Persistence API</a></strong> - save() and load() reference</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Migrations - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Migrations</h1>
+<p>Migrations are versioned SQL scripts that evolve your database schema over time. As your application grows, you&#39;ll need to add tables, columns, and indexes. Migrations track which changes have been applied and apply only the new ones.</p>
+<h2>How It Works</h2>
+<p>Each migration has a version number and an <code>up</code> script (SQL to apply the change). Optionally, include a <code>down</code> script to reverse the change.</p>
+<pre><code class="language-typescript">const migrations = [
+  { version: 1, up: &#39;CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)&#39; },
+  { version: 2, up: &#39;ALTER TABLE users ADD COLUMN email TEXT&#39; },
+  { version: 3, up: &#39;CREATE INDEX idx_users_email ON users(email)&#39; }
+]
+
+await db.migrate(migrations)
+</code></pre>
+<p>The library:</p>
+<ol>
+<li>Creates a <code>_migrations</code> table to track applied versions</li>
+<li>Runs each unapplied migration in version order</li>
+<li>Records each successful migration with a timestamp</li>
+<li>Returns the list of newly applied version numbers</li>
+</ol>
+<p>Each migration runs in its own transaction. If migration 3 fails, migrations 1 and 2 remain applied.</p>
+<h2>Basic Usage</h2>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+const db = await createDatabase()
+
+const migrations = [
+  {
+    version: 1,
+    up: `
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+      )
+    `,
+    down: &#39;DROP TABLE users&#39;
+  }
+]
+
+const applied = await db.migrate(migrations)
+console.log(applied) // [1] on first run, [] on subsequent runs
+</code></pre>
+<h2>Key Points</h2>
+<ul>
+<li><strong>Version order matters</strong> - Migrations run in ascending version order, not array order</li>
+<li><strong>Idempotent by design</strong> - Calling <code>migrate()</code> multiple times only applies new migrations</li>
+<li><strong>Individual transactions</strong> - Each migration is atomic; failures don&#39;t affect earlier migrations</li>
+<li><strong>Rollback requires <code>down</code></strong> - The <code>down</code> script is optional but needed for <code>db.rollback()</code></li>
+<li><strong>Gaps are fine</strong> - Versions don&#39;t need to be sequential (1, 2, 5, 10 is valid)</li>
+</ul>
+<h2>Examples</h2>
+<h3>Checking Current Version</h3>
+<p>See which migrations have been applied:</p>
+<pre><code class="language-typescript">const version = db.getMigrationVersion()
+console.log(`Database is at version ${version}`)
+</code></pre>
+<h3>Rolling Back</h3>
+<p>Undo migrations back to a target version:</p>
+<pre><code class="language-typescript">const migrations = [
+  { version: 1, up: &#39;CREATE TABLE a (id INTEGER)&#39;, down: &#39;DROP TABLE a&#39; },
+  { version: 2, up: &#39;CREATE TABLE b (id INTEGER)&#39;, down: &#39;DROP TABLE b&#39; },
+  { version: 3, up: &#39;CREATE TABLE c (id INTEGER)&#39;, down: &#39;DROP TABLE c&#39; }
+]
+
+await db.migrate(migrations) // At version 3
+
+await db.rollback(1, migrations) // Back to version 1
+// Tables b and c are dropped, only a remains
+</code></pre>
+<h3>Data Migrations</h3>
+<p>Move or transform data as part of a schema change:</p>
+<pre><code class="language-typescript">const migrations = [
+  {
+    version: 1,
+    up: &#39;CREATE TABLE users (id INTEGER PRIMARY KEY, fullname TEXT)&#39;
+  },
+  {
+    version: 2,
+    up: `
+      ALTER TABLE users ADD COLUMN first_name TEXT;
+      ALTER TABLE users ADD COLUMN last_name TEXT;
+      UPDATE users SET
+        first_name = substr(fullname, 1, instr(fullname, &#39; &#39;) - 1),
+        last_name = substr(fullname, instr(fullname, &#39; &#39;) + 1);
+    `
+  }
+]
+</code></pre>
+<h3>Handling Migration Errors</h3>
+<p>Failed migrations throw <code>MigrationError</code> with the version number:</p>
+<pre><code class="language-typescript">import { MigrationError } from &#39;@motioneffector/sql&#39;
+
+try {
+  await db.migrate(migrations)
+} catch (error) {
+  if (error instanceof MigrationError) {
+    console.error(`Migration ${error.version} failed:`, error.message)
+  }
+}
+</code></pre>
+<h2>Related</h2>
+<ul>
+<li><strong><a href="guide-schema-migrations.html">Schema Migrations Guide</a></strong> - Step-by-step migration patterns</li>
+<li><strong><a href="api-migration-methods.html">Migration Methods API</a></strong> - Complete method signatures</li>
+<li><strong><a href="concept-transactions.html">Transactions</a></strong> - How migrations use transactions internally</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

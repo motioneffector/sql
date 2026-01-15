@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error Classes API - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Error Classes API</h1>
+<p>Error types for handling database failures.</p>
+<hr>
+<h2><code>SqlError</code></h2>
+<p>Base class for all SQL-related errors.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">class SqlError extends Error {
+  code: string
+  sql?: string
+  params?: unknown[]
+}
+</code></pre>
+<p><strong>Properties:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>Always <code>&#39;SqlError&#39;</code></td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td><code>string</code></td>
+<td>Error description</td>
+</tr>
+<tr>
+<td><code>code</code></td>
+<td><code>string</code></td>
+<td>SQLite error code (e.g., <code>&#39;SQLITE_ERROR&#39;</code>)</td>
+</tr>
+<tr>
+<td><code>sql</code></td>
+<td><code>string</code></td>
+<td>SQL statement that caused the error (if applicable)</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td><code>unknown[]</code></td>
+<td>Parameters that were bound (if applicable)</td>
+</tr>
+</tbody></table>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">import { SqlError } from &#39;@motioneffector/sql&#39;
+
+try {
+  db.run(&#39;SELECT * FROM nonexistent&#39;)
+} catch (error) {
+  if (error instanceof SqlError) {
+    console.log(error.code)    // &#39;SQLITE_ERROR&#39;
+    console.log(error.sql)     // &#39;SELECT * FROM nonexistent&#39;
+    console.log(error.message) // &#39;no such table: nonexistent&#39;
+  }
+}
+</code></pre>
+<hr>
+<h2><code>SqlSyntaxError</code></h2>
+<p>Thrown when SQL cannot be parsed.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">class SqlSyntaxError extends SqlError {
+  // Inherits all SqlError properties
+}
+</code></pre>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">import { SqlSyntaxError } from &#39;@motioneffector/sql&#39;
+
+try {
+  db.exec(&#39;SELEKT * FORM users&#39;) // Typos
+} catch (error) {
+  if (error instanceof SqlSyntaxError) {
+    console.log(&#39;Invalid SQL:&#39;, error.message)
+  }
+}
+</code></pre>
+<p><strong>Triggered by:</strong></p>
+<ul>
+<li>Syntax errors (<code>near &quot;SELEKT&quot;: syntax error</code>)</li>
+<li>Unrecognized tokens</li>
+<li>Incomplete statements</li>
+<li>Malformed SQL</li>
+</ul>
+<hr>
+<h2><code>SqlConstraintError</code></h2>
+<p>Thrown when a constraint is violated.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">class SqlConstraintError extends SqlError {
+  // Inherits all SqlError properties
+}
+</code></pre>
+<p><strong>Properties:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>code</code></td>
+<td><code>string</code></td>
+<td>Specific constraint code</td>
+</tr>
+</tbody></table>
+<p>Common codes:</p>
+<ul>
+<li><code>SQLITE_CONSTRAINT_UNIQUE</code> — Duplicate value in UNIQUE column</li>
+<li><code>SQLITE_CONSTRAINT_NOTNULL</code> — NULL in NOT NULL column</li>
+<li><code>SQLITE_CONSTRAINT_FOREIGNKEY</code> — Foreign key violation</li>
+<li><code>SQLITE_CONSTRAINT_CHECK</code> — CHECK constraint failed</li>
+<li><code>SQLITE_CONSTRAINT_PRIMARYKEY</code> — Primary key violation</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">import { SqlConstraintError } from &#39;@motioneffector/sql&#39;
+
+try {
+  db.run(&#39;INSERT INTO users (email) VALUES (?)&#39;, [&#39;taken@example.com&#39;])
+} catch (error) {
+  if (error instanceof SqlConstraintError) {
+    if (error.code === &#39;SQLITE_CONSTRAINT_UNIQUE&#39;) {
+      console.log(&#39;Email already exists&#39;)
+    }
+  }
+}
+</code></pre>
+<hr>
+<h2><code>SqlNotFoundError</code></h2>
+<p>Thrown when a referenced object doesn&#39;t exist.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">class SqlNotFoundError extends SqlError {
+  // Inherits all SqlError properties
+}
+</code></pre>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">import { SqlNotFoundError } from &#39;@motioneffector/sql&#39;
+
+try {
+  db.run(&#39;INSERT INTO nonexistent VALUES (1)&#39;)
+} catch (error) {
+  if (error instanceof SqlNotFoundError) {
+    console.log(&#39;Table or column not found:&#39;, error.message)
+  }
+}
+</code></pre>
+<p><strong>Triggered by:</strong></p>
+<ul>
+<li><code>no such table: X</code></li>
+<li><code>no such column: X</code></li>
+<li>Table/column not found in helpers</li>
+</ul>
+<hr>
+<h2><code>MigrationError</code></h2>
+<p>Thrown when a migration fails.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">class MigrationError extends SqlError {
+  version?: number
+}
+</code></pre>
+<p><strong>Properties:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>version</code></td>
+<td><code>number</code></td>
+<td>Migration version that failed</td>
+</tr>
+</tbody></table>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">import { MigrationError } from &#39;@motioneffector/sql&#39;
+
+try {
+  await db.migrate(migrations)
+} catch (error) {
+  if (error instanceof MigrationError) {
+    console.log(`Migration ${error.version} failed:`, error.message)
+  }
+}
+</code></pre>
+<p><strong>Triggered by:</strong></p>
+<ul>
+<li>Invalid migration version (&lt; 1, not integer)</li>
+<li>Duplicate migration versions</li>
+<li>SQL error in up/down script</li>
+<li>Missing down script for rollback</li>
+<li>Target version out of range</li>
+</ul>
+<hr>
+<h2>Error Hierarchy</h2>
+<pre><code>Error
+└── SqlError
+    ├── SqlSyntaxError
+    ├── SqlConstraintError
+    ├── SqlNotFoundError
+    └── MigrationError
+</code></pre>
+<p>Use <code>instanceof</code> to check error types. All SQL errors extend <code>SqlError</code>, so you can catch broadly or specifically:</p>
+<pre><code class="language-typescript">try {
+  // ... database operations
+} catch (error) {
+  if (error instanceof SqlConstraintError) {
+    // Handle constraint violations specifically
+  } else if (error instanceof SqlError) {
+    // Handle other SQL errors
+  } else {
+    // Non-SQL error
+    throw error
+  }
+}
+</code></pre>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

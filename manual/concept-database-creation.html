@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database Creation - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Database Creation</h1>
+<p>Every interaction with @motioneffector/sql starts with <code>createDatabase()</code>. This async factory function initializes the SQL.js WebAssembly engine, optionally loads existing data, and returns a ready-to-use Database instance.</p>
+<h2>How It Works</h2>
+<p>When you call <code>createDatabase()</code>, several things happen:</p>
+<ol>
+<li>SQL.js downloads and compiles the SQLite WASM binary (cached after first load)</li>
+<li>A new in-memory SQLite database is created</li>
+<li>If <code>persist</code> is configured, existing data is loaded from storage</li>
+<li>If <code>data</code> is provided, the database is initialized from that Uint8Array</li>
+<li>Foreign key enforcement is enabled</li>
+<li>The Database instance is returned</li>
+</ol>
+<p>The entire process is async because WASM loading requires a network request (or cache hit). This typically takes 50-200ms on first load, near-instant afterward.</p>
+<h2>Basic Usage</h2>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+// Empty database
+const db = await createDatabase()
+
+// With persistence
+const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+})
+
+// From existing data
+const db = await createDatabase({
+  data: existingUint8Array
+})
+</code></pre>
+<h2>Key Points</h2>
+<ul>
+<li><strong>Always async</strong> - <code>createDatabase()</code> returns <code>Promise&lt;Database&gt;</code>, so you must <code>await</code> it</li>
+<li><strong>Memory-first</strong> - The database lives in memory; persistence is opt-in</li>
+<li><strong>One instance per database</strong> - Each call creates a new, independent database</li>
+<li><strong>Don&#39;t forget to close</strong> - Call <code>db.close()</code> when done to free memory</li>
+</ul>
+<h2>Examples</h2>
+<h3>Persistent Database</h3>
+<p>Keep data between page reloads using IndexedDB:</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+const db = await createDatabase({
+  persist: {
+    key: &#39;my-app-db&#39;,
+    storage: &#39;indexeddb&#39;
+  }
+})
+
+// Data automatically loads on creation
+// Changes automatically save (debounced)
+</code></pre>
+<h3>Loading from Backup</h3>
+<p>Restore a database from an exported file:</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+// User uploads a .sqlite file
+const file = await fileInput.files[0].arrayBuffer()
+const data = new Uint8Array(file)
+
+const db = await createDatabase({ data })
+</code></pre>
+<h3>Custom WASM Path</h3>
+<p>Host the SQL.js WASM file yourself instead of using the CDN:</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+const db = await createDatabase({
+  wasmPath: &#39;/assets/sql-wasm.wasm&#39;
+})
+</code></pre>
+<h2>Related</h2>
+<ul>
+<li><strong><a href="your-first-database.html">Your First Database</a></strong> - Step-by-step getting started guide</li>
+<li><strong><a href="concept-persistence.html">Persistence</a></strong> - How auto-save and storage backends work</li>
+<li><strong><a href="api-createdatabase.html">createDatabase API</a></strong> - Complete options reference</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

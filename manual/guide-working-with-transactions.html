@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Working with Transactions - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Working with Transactions</h1>
+<p>Transactions ensure that multiple database operations succeed or fail together. Use them whenever you have related changes that shouldn&#39;t be partially applied.</p>
+<h2>Prerequisites</h2>
+<p>Before starting, you should:</p>
+<ul>
+<li><a href="your-first-database.html">Create a database</a></li>
+<li><a href="concept-query-methods.html">Understand query methods</a></li>
+</ul>
+<h2>Overview</h2>
+<p>We&#39;ll cover transaction usage by:</p>
+<ol>
+<li>Understanding when transactions are needed</li>
+<li>Writing basic transactions</li>
+<li>Handling errors properly</li>
+<li>Using nested transactions for partial rollback</li>
+</ol>
+<h2>Step 1: Recognize When You Need Transactions</h2>
+<p>Use a transaction when operations are logically connected. If one fails, the others shouldn&#39;t persist.</p>
+<p><strong>Examples requiring transactions:</strong></p>
+<ul>
+<li>Transferring money between accounts (debit and credit must both succeed)</li>
+<li>Creating an order with line items (order header and details together)</li>
+<li>Updating a record and logging the change (both or neither)</li>
+</ul>
+<p><strong>Examples NOT requiring transactions:</strong></p>
+<ul>
+<li>Inserting a single row</li>
+<li>Reading data</li>
+<li>Independent operations that can succeed or fail separately</li>
+</ul>
+<h2>Step 2: Write a Basic Transaction</h2>
+<p>Wrap your operations in <code>db.transaction()</code>:</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+const db = await createDatabase()
+
+db.exec(`
+  CREATE TABLE accounts (id INTEGER PRIMARY KEY, balance REAL);
+  INSERT INTO accounts VALUES (1, 1000), (2, 500);
+`)
+
+// Transfer $100 from account 1 to account 2
+await db.transaction(() =&gt; {
+  db.run(&#39;UPDATE accounts SET balance = balance - 100 WHERE id = 1&#39;)
+  db.run(&#39;UPDATE accounts SET balance = balance + 100 WHERE id = 2&#39;)
+})
+
+// Both accounts updated atomically
+</code></pre>
+<p>The callback runs inside BEGIN/COMMIT. If any statement fails, everything rolls back.</p>
+<h2>Step 3: Handle Errors Properly</h2>
+<p>When a transaction fails, the error is re-thrown after rollback:</p>
+<pre><code class="language-typescript">try {
+  await db.transaction(() =&gt; {
+    db.run(&#39;UPDATE accounts SET balance = balance - 100 WHERE id = 1&#39;)
+
+    // Simulate a failure
+    const target = db.get(&#39;SELECT * FROM accounts WHERE id = 999&#39;)
+    if (!target) {
+      throw new Error(&#39;Target account not found&#39;)
+    }
+
+    db.run(&#39;UPDATE accounts SET balance = balance + 100 WHERE id = 999&#39;)
+  })
+} catch (error) {
+  console.error(&#39;Transfer failed:&#39;, error.message)
+  // The first UPDATE was rolled back
+}
+
+// Account 1 still has original balance
+</code></pre>
+<h2>Step 4: Use Nested Transactions for Partial Rollback</h2>
+<p>Nested <code>transaction()</code> calls create savepoints. Inner failures can be caught without aborting the outer transaction:</p>
+<pre><code class="language-typescript">await db.transaction(async () =&gt; {
+  // This will persist
+  db.run(&#39;INSERT INTO logs (message) VALUES (?)&#39;, [&#39;Starting batch import&#39;])
+
+  // Try multiple imports, continue on individual failures
+  for (const item of items) {
+    try {
+      await db.transaction(() =&gt; {
+        db.run(&#39;INSERT INTO products (name, price) VALUES (?, ?)&#39;, [item.name, item.price])
+
+        if (item.price &lt; 0) {
+          throw new Error(&#39;Invalid price&#39;)
+        }
+      })
+    } catch (error) {
+      // This item failed, but we continue with others
+      db.run(&#39;INSERT INTO logs (message) VALUES (?)&#39;, [`Failed: ${item.name}`])
+    }
+  }
+
+  db.run(&#39;INSERT INTO logs (message) VALUES (?)&#39;, [&#39;Batch complete&#39;])
+})
+</code></pre>
+<h2>Complete Example</h2>
+<p>A realistic order creation with proper error handling:</p>
+<pre><code class="language-typescript">import { createDatabase, SqlConstraintError } from &#39;@motioneffector/sql&#39;
+
+interface OrderItem {
+  productId: number
+  quantity: number
+  price: number
+}
+
+async function createOrder(db: Database, userId: number, items: OrderItem[]) {
+  return db.transaction(() =&gt; {
+    // Create order header
+    const orderResult = db.run(
+      &#39;INSERT INTO orders (user_id, status, created_at) VALUES (?, ?, ?)&#39;,
+      [userId, &#39;pending&#39;, new Date().toISOString()]
+    )
+    const orderId = orderResult.lastInsertRowId
+
+    // Create line items
+    let total = 0
+    for (const item of items) {
+      db.run(
+        &#39;INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)&#39;,
+        [orderId, item.productId, item.quantity, item.price]
+      )
+      total += item.quantity * item.price
+    }
+
+    // Update order total
+    db.run(&#39;UPDATE orders SET total = ? WHERE id = ?&#39;, [total, orderId])
+
+    // Deduct from user balance
+    const result = db.run(
+      &#39;UPDATE users SET balance = balance - ? WHERE id = ? AND balance &gt;= ?&#39;,
+      [total, userId, total]
+    )
+
+    if (result.changes === 0) {
+      throw new Error(&#39;Insufficient balance&#39;)
+    }
+
+    return orderId
+  })
+}
+
+// Usage
+try {
+  const orderId = await createOrder(db, 1, [
+    { productId: 101, quantity: 2, price: 29.99 },
+    { productId: 102, quantity: 1, price: 49.99 }
+  ])
+  console.log(`Order ${orderId} created successfully`)
+} catch (error) {
+  console.error(&#39;Order failed:&#39;, error.message)
+}
+</code></pre>
+<h2>Variations</h2>
+<h3>Async Operations Inside Transactions</h3>
+<p>Await async work inside the callback:</p>
+<pre><code class="language-typescript">await db.transaction(async () =&gt; {
+  db.run(&#39;INSERT INTO orders (status) VALUES (?)&#39;, [&#39;processing&#39;])
+
+  // Call external service
+  const confirmation = await paymentService.charge(amount)
+
+  db.run(&#39;UPDATE orders SET confirmation = ? WHERE id = last_insert_rowid()&#39;, [confirmation])
+})
+</code></pre>
+<h3>Returning Values from Transactions</h3>
+<p>The transaction returns whatever your callback returns:</p>
+<pre><code class="language-typescript">const newId = await db.transaction(() =&gt; {
+  db.run(&#39;INSERT INTO items (name) VALUES (?)&#39;, [&#39;Widget&#39;])
+  return db.get&lt;{ id: number }&gt;(&#39;SELECT last_insert_rowid() as id&#39;)?.id
+})
+
+console.log(`Created item ${newId}`)
+</code></pre>
+<h3>Checking Transaction State</h3>
+<p>Query <code>db.inTransaction</code> to know if you&#39;re inside a transaction:</p>
+<pre><code class="language-typescript">function insertAuditLog(db: Database, message: string) {
+  if (!db.inTransaction) {
+    console.warn(&#39;Audit log should be called within a transaction&#39;)
+  }
+  db.run(&#39;INSERT INTO audit_log (message, timestamp) VALUES (?, ?)&#39;, [
+    message,
+    new Date().toISOString()
+  ])
+}
+</code></pre>
+<h2>Troubleshooting</h2>
+<h3>Transaction Appears to Do Nothing</h3>
+<p><strong>Symptom:</strong> Data isn&#39;t persisted after transaction completes.</p>
+<p><strong>Cause:</strong> The transaction callback threw an error that wasn&#39;t caught.</p>
+<p><strong>Solution:</strong> Check for unhandled promise rejections. Wrap in try/catch to see errors.</p>
+<h3>Nested Transaction Rolls Back Everything</h3>
+<p><strong>Symptom:</strong> Inner transaction failure rolls back outer transaction too.</p>
+<p><strong>Cause:</strong> The error from the inner transaction isn&#39;t being caught.</p>
+<p><strong>Solution:</strong> Wrap the inner <code>db.transaction()</code> call in try/catch.</p>
+<h3>Deadlock or Hang</h3>
+<p><strong>Symptom:</strong> Transaction never completes.</p>
+<p><strong>Cause:</strong> Awaiting something that itself tries to start a transaction.</p>
+<p><strong>Solution:</strong> Concurrent transactions are queued. Ensure you&#39;re not creating circular waits.</p>
+<h2>See Also</h2>
+<ul>
+<li><strong><a href="concept-transactions.html">Transactions Concept</a></strong> - How transactions work internally</li>
+<li><strong><a href="api-transactions.html">Transactions API</a></strong> - Method signatures</li>
+<li><strong><a href="api-error-classes.html">Error Classes</a></strong> - Error types for catch blocks</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

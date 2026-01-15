@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Query Methods - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Query Methods</h1>
+<p>The Database object provides four methods for executing SQL, each designed for a specific use case. Understanding which to use and when is fundamental to working with this library.</p>
+<h2>How It Works</h2>
+<p>All query methods accept SQL strings and optional parameters. Parameters are bound safely to prevent SQL injection. The methods differ in what they return:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Use Case</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>exec(sql)</code></td>
+<td>DDL, multi-statement scripts</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><code>run(sql, params)</code></td>
+<td>INSERT, UPDATE, DELETE</td>
+<td><code>{ changes, lastInsertRowId }</code></td>
+</tr>
+<tr>
+<td><code>get(sql, params)</code></td>
+<td>SELECT single row</td>
+<td>row object or <code>undefined</code></td>
+</tr>
+<tr>
+<td><code>all(sql, params)</code></td>
+<td>SELECT multiple rows</td>
+<td>array of row objects</td>
+</tr>
+</tbody></table>
+<h2>Basic Usage</h2>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+const db = await createDatabase()
+
+// exec - schema changes and scripts
+db.exec(&#39;CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)&#39;)
+
+// run - mutations
+const result = db.run(&#39;INSERT INTO users (name) VALUES (?)&#39;, [&#39;Alice&#39;])
+console.log(result.lastInsertRowId) // 1
+
+// get - single row
+const user = db.get&lt;{ id: number; name: string }&gt;(&#39;SELECT * FROM users WHERE id = ?&#39;, [1])
+
+// all - multiple rows
+const users = db.all&lt;{ id: number; name: string }&gt;(&#39;SELECT * FROM users&#39;)
+</code></pre>
+<h2>Key Points</h2>
+<ul>
+<li><strong>Use <code>exec()</code> for DDL</strong> - CREATE, ALTER, DROP, and multi-statement scripts</li>
+<li><strong>Use <code>run()</code> for mutations</strong> - INSERT, UPDATE, DELETE when you need change counts</li>
+<li><strong>Use <code>get()</code> for single rows</strong> - Returns <code>undefined</code> if no match</li>
+<li><strong>Use <code>all()</code> for multiple rows</strong> - Returns empty array if no matches</li>
+<li><strong>Always parameterize user input</strong> - Never concatenate user data into SQL strings</li>
+</ul>
+<h2>Examples</h2>
+<h3>Parameterized Queries</h3>
+<p>Use <code>?</code> for positional parameters or <code>:name</code> for named parameters:</p>
+<pre><code class="language-typescript">// Positional parameters (array)
+db.run(&#39;INSERT INTO users (name, email) VALUES (?, ?)&#39;, [&#39;Alice&#39;, &#39;alice@example.com&#39;])
+
+// Named parameters (object)
+db.run(&#39;INSERT INTO users (name, email) VALUES (:name, :email)&#39;, {
+  name: &#39;Alice&#39;,
+  email: &#39;alice@example.com&#39;
+})
+</code></pre>
+<h3>Type-Safe Queries</h3>
+<p>Provide a type parameter to <code>get()</code> and <code>all()</code> for TypeScript inference:</p>
+<pre><code class="language-typescript">interface User {
+  id: number
+  name: string
+  email: string | null
+}
+
+const user = db.get&lt;User&gt;(&#39;SELECT * FROM users WHERE id = ?&#39;, [1])
+// user is User | undefined
+
+const users = db.all&lt;User&gt;(&#39;SELECT * FROM users WHERE name LIKE ?&#39;, [&#39;A%&#39;])
+// users is User[]
+</code></pre>
+<h3>Tagged Template Queries</h3>
+<p>Use <code>db.sql</code> for a cleaner syntax with template literals:</p>
+<pre><code class="language-typescript">const name = &#39;Alice&#39;
+const email = &#39;alice@example.com&#39;
+
+const result = db.run(db.sql`
+  INSERT INTO users (name, email)
+  VALUES (${name}, ${email})
+`)
+</code></pre>
+<p>Values are automatically parameterized.</p>
+<h2>Related</h2>
+<ul>
+<li><strong><a href="your-first-database.html">Your First Database</a></strong> - See these methods in action</li>
+<li><strong><a href="guide-using-table-helpers.html">Using Table Helpers</a></strong> - Higher-level CRUD without writing SQL</li>
+<li><strong><a href="api-query-methods.html">Query Methods API</a></strong> - Complete method signatures and options</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
