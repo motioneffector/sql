@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Query Methods API - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Query Methods API</h1>
+<p>Methods for executing SQL queries and statements.</p>
+<hr>
+<h2><code>exec()</code></h2>
+<p>Executes one or more SQL statements without parameters or return values.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">exec(sql: string): void
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sql</code></td>
+<td><code>string</code></td>
+<td>Yes</td>
+<td>SQL statement(s) to execute</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>void</code></p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">// Create table
+db.exec(&#39;CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)&#39;)
+
+// Multiple statements
+db.exec(`
+  CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT);
+  CREATE TABLE comments (id INTEGER PRIMARY KEY, post_id INTEGER);
+  CREATE INDEX idx_comments_post ON comments(post_id);
+`)
+</code></pre>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>SqlSyntaxError</code> — If SQL is invalid</li>
+<li><code>SqlNotFoundError</code> — If referenced table/column doesn&#39;t exist</li>
+<li><code>SqlConstraintError</code> — If constraint is violated</li>
+</ul>
+<hr>
+<h2><code>run()</code></h2>
+<p>Executes a single SQL statement with parameters, returning change information.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">run(sql: string | SqlTemplate, params?: ParamArray | ParamObject): RunResult
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sql</code></td>
+<td><code>string | SqlTemplate</code></td>
+<td>Yes</td>
+<td>SQL statement to execute</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td><code>ParamArray | ParamObject</code></td>
+<td>No</td>
+<td>Parameters to bind</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>RunResult</code> — Object with <code>changes</code> and <code>lastInsertRowId</code></p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">// Positional parameters
+const result = db.run(
+  &#39;INSERT INTO users (name, email) VALUES (?, ?)&#39;,
+  [&#39;Alice&#39;, &#39;alice@example.com&#39;]
+)
+console.log(result.lastInsertRowId) // 1
+console.log(result.changes)         // 1
+
+// Named parameters
+db.run(
+  &#39;UPDATE users SET email = :email WHERE id = :id&#39;,
+  { email: &#39;new@example.com&#39;, id: 1 }
+)
+
+// Template literal
+const name = &#39;Bob&#39;
+db.run(db.sql`INSERT INTO users (name) VALUES (${name})`)
+</code></pre>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>SqlSyntaxError</code> — If SQL is invalid</li>
+<li><code>SqlError</code> — If parameter count doesn&#39;t match placeholders</li>
+<li><code>SqlConstraintError</code> — If constraint is violated</li>
+</ul>
+<hr>
+<h2><code>get()</code></h2>
+<p>Executes a query and returns the first row.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">get&lt;T extends Record&lt;string, unknown&gt; = Record&lt;string, unknown&gt;&gt;(
+  sql: string | SqlTemplate,
+  params?: ParamArray | ParamObject
+): T | undefined
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sql</code></td>
+<td><code>string | SqlTemplate</code></td>
+<td>Yes</td>
+<td>SQL query</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td><code>ParamArray | ParamObject</code></td>
+<td>No</td>
+<td>Parameters to bind</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>T | undefined</code> — First row as typed object, or undefined if no match</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">interface User {
+  id: number
+  name: string
+  email: string
+}
+
+const user = db.get&lt;User&gt;(&#39;SELECT * FROM users WHERE id = ?&#39;, [1])
+if (user) {
+  console.log(user.name) // TypeScript knows this is string
+}
+</code></pre>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>SqlSyntaxError</code> — If SQL is invalid</li>
+<li><code>SqlError</code> — If parameter count doesn&#39;t match placeholders</li>
+</ul>
+<hr>
+<h2><code>all()</code></h2>
+<p>Executes a query and returns all matching rows.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">all&lt;T extends Record&lt;string, unknown&gt; = Record&lt;string, unknown&gt;&gt;(
+  sql: string | SqlTemplate,
+  params?: ParamArray | ParamObject
+): T[]
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sql</code></td>
+<td><code>string | SqlTemplate</code></td>
+<td>Yes</td>
+<td>SQL query</td>
+</tr>
+<tr>
+<td><code>params</code></td>
+<td><code>ParamArray | ParamObject</code></td>
+<td>No</td>
+<td>Parameters to bind</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>T[]</code> — Array of row objects (empty array if no matches)</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">interface User {
+  id: number
+  name: string
+}
+
+const users = db.all&lt;User&gt;(&#39;SELECT * FROM users WHERE name LIKE ?&#39;, [&#39;A%&#39;])
+console.log(users.length)
+users.forEach(u =&gt; console.log(u.name))
+</code></pre>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>SqlSyntaxError</code> — If SQL is invalid</li>
+<li><code>SqlError</code> — If parameter count doesn&#39;t match placeholders</li>
+</ul>
+<hr>
+<h2><code>sql</code></h2>
+<p>Tagged template literal for safe query building.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">sql(strings: TemplateStringsArray, ...values: unknown[]): SqlTemplate
+</code></pre>
+<p><strong>Returns:</strong> <code>SqlTemplate</code> — Object with <code>sql</code> string and <code>params</code> array</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const name = &#39;Alice&#39;
+const minAge = 18
+
+// Values become ? placeholders automatically
+const template = db.sql`
+  SELECT * FROM users
+  WHERE name = ${name}
+  AND age &gt;= ${minAge}
+`
+
+// Use with any query method
+const users = db.all(template)
+const user = db.get(template)
+db.run(db.sql`UPDATE users SET active = ${true} WHERE id = ${1}`)
+</code></pre>
+<hr>
+<h2>Types</h2>
+<h3><code>RunResult</code></h3>
+<pre><code class="language-typescript">interface RunResult {
+  changes: number
+  lastInsertRowId: number
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>changes</code></td>
+<td><code>number</code></td>
+<td>Number of rows affected</td>
+</tr>
+<tr>
+<td><code>lastInsertRowId</code></td>
+<td><code>number</code></td>
+<td>ID of last inserted row (for INSERT operations)</td>
+</tr>
+</tbody></table>
+<h3><code>ParamArray</code></h3>
+<pre><code class="language-typescript">type ParamArray = unknown[]
+</code></pre>
+<p>Positional parameters bound to <code>?</code> placeholders in order.</p>
+<h3><code>ParamObject</code></h3>
+<pre><code class="language-typescript">type ParamObject = Record&lt;string, unknown&gt;
+</code></pre>
+<p>Named parameters bound to <code>:name</code>, <code>$name</code>, or <code>@name</code> placeholders.</p>
+<h3><code>SqlTemplate</code></h3>
+<pre><code class="language-typescript">interface SqlTemplate {
+  sql: string
+  params: unknown[]
+}
+</code></pre>
+<p>Result of the <code>db.sql</code> tagged template literal.</p>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

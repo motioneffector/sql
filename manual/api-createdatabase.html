@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>createDatabase API - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>createDatabase API</h1>
+<p>The entry point for creating a SQLite database in the browser.</p>
+<hr>
+<h2><code>createDatabase()</code></h2>
+<p>Creates and initializes a new SQLite database instance.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">function createDatabase(options?: DatabaseOptions): Promise&lt;Database&gt;
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>options</code></td>
+<td><code>DatabaseOptions</code></td>
+<td>No</td>
+<td>Configuration for the database</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>Promise&lt;Database&gt;</code> — A fully initialized database instance</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+// Empty database
+const db = await createDatabase()
+
+// With persistence
+const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+})
+
+// From existing data
+const db = await createDatabase({
+  data: existingUint8Array
+})
+</code></pre>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>Error</code> — If WASM file fails to load</li>
+<li><code>SqlError</code> — If provided data is not valid SQLite format</li>
+<li><code>Error</code> — If persist.key is empty string</li>
+</ul>
+<hr>
+<h2>Types</h2>
+<h3><code>DatabaseOptions</code></h3>
+<pre><code class="language-typescript">interface DatabaseOptions {
+  data?: Uint8Array
+  wasmPath?: string
+  persist?: PersistConfig
+  autoSave?: boolean
+  autoSaveDebounce?: number
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>data</code></td>
+<td><code>Uint8Array</code></td>
+<td>No</td>
+<td>Existing database data to load</td>
+</tr>
+<tr>
+<td><code>wasmPath</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td>Custom path to SQL.js WASM file. Default: CDN</td>
+</tr>
+<tr>
+<td><code>persist</code></td>
+<td><code>PersistConfig</code></td>
+<td>No</td>
+<td>Persistence configuration</td>
+</tr>
+<tr>
+<td><code>autoSave</code></td>
+<td><code>boolean</code></td>
+<td>No</td>
+<td>Enable automatic saves. Default: <code>true</code> when persist is set</td>
+</tr>
+<tr>
+<td><code>autoSaveDebounce</code></td>
+<td><code>number</code></td>
+<td>No</td>
+<td>Debounce delay in ms. Default: <code>1000</code></td>
+</tr>
+</tbody></table>
+<h3><code>PersistConfig</code></h3>
+<pre><code class="language-typescript">interface PersistConfig {
+  key: string
+  storage: &#39;indexeddb&#39; | &#39;localstorage&#39; | StorageAdapter
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>key</code></td>
+<td><code>string</code></td>
+<td>Yes</td>
+<td>Storage key for saving/loading</td>
+</tr>
+<tr>
+<td><code>storage</code></td>
+<td><code>&#39;indexeddb&#39; | &#39;localstorage&#39; | StorageAdapter</code></td>
+<td>Yes</td>
+<td>Storage backend</td>
+</tr>
+</tbody></table>
+<h3><code>StorageAdapter</code></h3>
+<pre><code class="language-typescript">interface StorageAdapter {
+  getItem(key: string): Promise&lt;Uint8Array | null&gt;
+  setItem(key: string, value: Uint8Array): Promise&lt;void&gt;
+  removeItem(key: string): Promise&lt;void&gt;
+}
+</code></pre>
+<p>Implement this interface to create custom storage backends.</p>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

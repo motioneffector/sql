@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Export and Import API - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Export and Import API</h1>
+<p>Methods for database file I/O.</p>
+<hr>
+<h2><code>export()</code></h2>
+<p>Exports the database as a binary blob.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">export(): Uint8Array
+</code></pre>
+<p><strong>Returns:</strong> <code>Uint8Array</code> — The complete database as a SQLite file</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const data = db.export()
+console.log(`Database size: ${data.length} bytes`)
+
+// Download as file
+const blob = new Blob([data], { type: &#39;application/x-sqlite3&#39; })
+const url = URL.createObjectURL(blob)
+const a = document.createElement(&#39;a&#39;)
+a.href = url
+a.download = &#39;backup.sqlite&#39;
+a.click()
+URL.revokeObjectURL(url)
+</code></pre>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>Returns a valid SQLite database file</li>
+<li>Can be opened in SQLite clients (DB Browser, etc.)</li>
+<li>Use before destructive operations for backup</li>
+</ul>
+<hr>
+<h2><code>import()</code></h2>
+<p>Replaces the database contents with imported data.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">import(data: Uint8Array | ArrayBuffer): void
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>data</code></td>
+<td><code>Uint8Array | ArrayBuffer</code></td>
+<td>Yes</td>
+<td>SQLite database file contents</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>void</code></p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">// From file upload
+const file = await fileInput.files[0].arrayBuffer()
+db.import(new Uint8Array(file))
+
+// From previous export
+const backup = db.export()
+// ... make changes ...
+db.import(backup) // Restore
+</code></pre>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Closes current database and opens new one from data</li>
+<li>Schedules auto-save if persistence configured</li>
+<li>Validates SQLite file format before import</li>
+</ul>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>SqlError</code> — If data is not valid SQLite format (must start with &quot;SQLite format 3\0&quot;)</li>
+<li><code>SqlError</code> — If file is too small to be valid</li>
+</ul>
+<p><strong>Warning:</strong> This replaces all current data. The previous database contents are lost.</p>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

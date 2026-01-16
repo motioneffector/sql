@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Using Table Helpers - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Using Table Helpers</h1>
+<p>Table helpers provide a simplified API for common CRUD operations. Instead of writing SQL, call methods like <code>insert()</code>, <code>find()</code>, and <code>update()</code>. The helper generates safe, parameterized queries for you.</p>
+<h2>Prerequisites</h2>
+<p>Before starting, you should:</p>
+<ul>
+<li><a href="your-first-database.html">Create a database</a></li>
+<li>Have an existing table to work with</li>
+</ul>
+<h2>Overview</h2>
+<p>We&#39;ll use table helpers by:</p>
+<ol>
+<li>Creating a helper for a table</li>
+<li>Inserting rows</li>
+<li>Finding and querying rows</li>
+<li>Updating and deleting rows</li>
+<li>Counting rows</li>
+</ol>
+<h2>Step 1: Create a Table Helper</h2>
+<p>Call <code>db.table&lt;T&gt;()</code> with your table name and an optional type parameter:</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+const db = await createDatabase()
+
+db.exec(`
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE,
+    active INTEGER DEFAULT 1
+  )
+`)
+
+interface User {
+  id: number
+  name: string
+  email: string | null
+  active: number
+}
+
+const users = db.table&lt;User&gt;(&#39;users&#39;)
+</code></pre>
+<p>The helper is tied to that table. Create multiple helpers for multiple tables.</p>
+<h2>Step 2: Insert Rows</h2>
+<p>Use <code>insert()</code> to add a row. It returns the new row&#39;s ID:</p>
+<pre><code class="language-typescript">const id = users.insert({
+  name: &#39;Alice&#39;,
+  email: &#39;alice@example.com&#39;
+})
+
+console.log(`Created user ${id}`) // Created user 1
+</code></pre>
+<p>Omit columns with defaults (like <code>id</code> and <code>active</code>). Pass <code>null</code> to explicitly set NULL.</p>
+<h2>Step 3: Find and Query Rows</h2>
+<p>Find a single row by its primary key:</p>
+<pre><code class="language-typescript">const alice = users.find(1)
+console.log(alice) // { id: 1, name: &#39;Alice&#39;, email: &#39;alice@example.com&#39;, active: 1 }
+
+const notFound = users.find(999)
+console.log(notFound) // undefined
+</code></pre>
+<p>Query multiple rows with conditions:</p>
+<pre><code class="language-typescript">// Find all active users
+const activeUsers = users.where({ active: 1 })
+
+// Find by email
+const byEmail = users.where({ email: &#39;alice@example.com&#39; })
+
+// Multiple conditions (AND logic)
+const filtered = users.where({ active: 1, name: &#39;Alice&#39; })
+
+// Get all rows
+const everyone = users.all()
+</code></pre>
+<h2>Step 4: Update and Delete Rows</h2>
+<p>Update by primary key:</p>
+<pre><code class="language-typescript">const changed = users.update(1, { name: &#39;Alicia&#39; })
+console.log(`Updated ${changed} rows`) // Updated 1 rows
+</code></pre>
+<p>Delete by primary key:</p>
+<pre><code class="language-typescript">const deleted = users.delete(1)
+console.log(`Deleted ${deleted} rows`) // Deleted 1 rows
+</code></pre>
+<h2>Step 5: Count Rows</h2>
+<p>Count all or matching rows:</p>
+<pre><code class="language-typescript">const total = users.count()
+console.log(`${total} users total`)
+
+const active = users.count({ active: 1 })
+console.log(`${active} active users`)
+</code></pre>
+<h2>Complete Example</h2>
+<p>A typical user management flow:</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+const db = await createDatabase()
+
+db.exec(`
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE,
+    role TEXT DEFAULT &#39;user&#39;,
+    created_at TEXT
+  )
+`)
+
+interface User {
+  id: number
+  name: string
+  email: string
+  role: string
+  created_at: string
+}
+
+const users = db.table&lt;User&gt;(&#39;users&#39;)
+
+// Create users
+users.insert({ name: &#39;Alice&#39;, email: &#39;alice@example.com&#39;, created_at: new Date().toISOString() })
+users.insert({ name: &#39;Bob&#39;, email: &#39;bob@example.com&#39;, role: &#39;admin&#39;, created_at: new Date().toISOString() })
+users.insert({ name: &#39;Charlie&#39;, email: &#39;charlie@example.com&#39;, created_at: new Date().toISOString() })
+
+// Query
+const admins = users.where({ role: &#39;admin&#39; })
+console.log(`${admins.length} admins`) // 1 admins
+
+// Update
+users.update(1, { role: &#39;moderator&#39; })
+
+// Find
+const alice = users.find(1)
+console.log(alice?.role) // moderator
+
+// Delete
+users.delete(3)
+console.log(users.count()) // 2
+</code></pre>
+<h2>Variations</h2>
+<h3>Custom Primary Key</h3>
+<p>If your table uses a different column as the primary key:</p>
+<pre><code class="language-typescript">db.exec(&#39;CREATE TABLE products (sku TEXT PRIMARY KEY, name TEXT, price REAL)&#39;)
+
+const products = db.table(&#39;products&#39;, { primaryKey: &#39;sku&#39; })
+
+products.insert({ sku: &#39;WIDGET-001&#39;, name: &#39;Widget&#39;, price: 29.99 })
+
+const widget = products.find(&#39;WIDGET-001&#39;)
+</code></pre>
+<h3>Finding by Non-Primary Key</h3>
+<p>Override the key for a single operation:</p>
+<pre><code class="language-typescript">const users = db.table&lt;User&gt;(&#39;users&#39;)
+
+// Find by email instead of id
+const user = users.find(&#39;alice@example.com&#39;, { key: &#39;email&#39; })
+
+// Update by email
+users.update(&#39;alice@example.com&#39;, { name: &#39;Alicia&#39; }, { key: &#39;email&#39; })
+
+// Delete by email
+users.delete(&#39;alice@example.com&#39;, { key: &#39;email&#39; })
+</code></pre>
+<h3>Batch Inserts</h3>
+<p>Insert many rows efficiently with <code>db.insertMany()</code>:</p>
+<pre><code class="language-typescript">const ids = db.insertMany(&#39;users&#39;, [
+  { name: &#39;User 1&#39;, email: &#39;user1@example.com&#39; },
+  { name: &#39;User 2&#39;, email: &#39;user2@example.com&#39; },
+  { name: &#39;User 3&#39;, email: &#39;user3@example.com&#39; }
+])
+
+console.log(`Inserted ${ids.length} users`) // Inserted 3 users
+</code></pre>
+<h3>Combining with Raw SQL</h3>
+<p>Use helpers for simple CRUD and raw SQL for complex queries:</p>
+<pre><code class="language-typescript">const users = db.table&lt;User&gt;(&#39;users&#39;)
+
+// Simple operations with helper
+users.insert({ name: &#39;Alice&#39;, email: &#39;alice@example.com&#39; })
+
+// Complex query with raw SQL
+const result = db.all&lt;{ name: string; post_count: number }&gt;(`
+  SELECT u.name, COUNT(p.id) as post_count
+  FROM users u
+  LEFT JOIN posts p ON p.user_id = u.id
+  GROUP BY u.id
+  ORDER BY post_count DESC
+`)
+</code></pre>
+<h2>Troubleshooting</h2>
+<h3>SqlNotFoundError on Insert</h3>
+<p><strong>Symptom:</strong> <code>SqlNotFoundError: no such table: tablename</code></p>
+<p><strong>Cause:</strong> Table doesn&#39;t exist or name is misspelled.</p>
+<p><strong>Solution:</strong> Run migrations first, check table name spelling.</p>
+<h3>SqlConstraintError on Insert</h3>
+<p><strong>Symptom:</strong> <code>SqlConstraintError: UNIQUE constraint failed</code></p>
+<p><strong>Cause:</strong> Duplicate value in a UNIQUE column.</p>
+<p><strong>Solution:</strong> Check for existing rows or use a different value.</p>
+<h3>Type Mismatch in Results</h3>
+<p><strong>Symptom:</strong> TypeScript type doesn&#39;t match actual data.</p>
+<p><strong>Cause:</strong> Type parameter doesn&#39;t match table schema.</p>
+<p><strong>Solution:</strong> Update your interface to match the actual columns and types.</p>
+<h2>See Also</h2>
+<ul>
+<li><strong><a href="concept-query-methods.html">Query Methods</a></strong> - When you need raw SQL instead</li>
+<li><strong><a href="api-table-helper.html">Table Helper API</a></strong> - Complete method reference</li>
+<li><strong><a href="api-batch-operations.html">Batch Operations API</a></strong> - insertMany details</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

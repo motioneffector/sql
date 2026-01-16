@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lifecycle Methods API - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Lifecycle Methods API</h1>
+<p>Methods for database lifecycle management.</p>
+<hr>
+<h2><code>close()</code></h2>
+<p>Closes the database and releases resources.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">close(): void
+</code></pre>
+<p><strong>Returns:</strong> <code>void</code></p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const db = await createDatabase()
+// ... use the database ...
+db.close()
+
+// After close, methods throw
+db.run(&#39;SELECT 1&#39;) // Error: Database is closed
+</code></pre>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Triggers a final save if persistence configured</li>
+<li>Rejects any pending transactions</li>
+<li>Cancels pending auto-save timers</li>
+<li>Releases SQLite memory</li>
+</ul>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>Safe to call multiple times</li>
+<li>After close, all methods throw &quot;Database is closed&quot;</li>
+<li>For cleanup in tests or when done with database</li>
+</ul>
+<hr>
+<h2><code>clone()</code></h2>
+<p>Creates an independent copy of the database.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">clone(): Promise&lt;Database&gt;
+</code></pre>
+<p><strong>Returns:</strong> <code>Promise&lt;Database&gt;</code> — A new database with identical data</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const original = await createDatabase()
+original.exec(&#39;CREATE TABLE test (id INTEGER)&#39;)
+original.run(&#39;INSERT INTO test VALUES (1)&#39;)
+
+const copy = await original.clone()
+
+// Changes to copy don&#39;t affect original
+copy.run(&#39;INSERT INTO test VALUES (2)&#39;)
+
+console.log(original.all(&#39;SELECT * FROM test&#39;).length) // 1
+console.log(copy.all(&#39;SELECT * FROM test&#39;).length)     // 2
+</code></pre>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>Clone does not inherit persistence settings</li>
+<li>Useful for &quot;what if&quot; scenarios without affecting real data</li>
+<li>Creates via export/import internally</li>
+</ul>
+<hr>
+<h2><code>clear()</code></h2>
+<p>Deletes all data from all tables without dropping them.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">clear(): void
+</code></pre>
+<p><strong>Returns:</strong> <code>void</code></p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">db.run(&#39;INSERT INTO users (name) VALUES (?)&#39;, [&#39;Alice&#39;])
+console.log(db.all(&#39;SELECT * FROM users&#39;).length) // 1
+
+db.clear()
+console.log(db.all(&#39;SELECT * FROM users&#39;).length) // 0
+
+// Table structure still exists
+db.run(&#39;INSERT INTO users (name) VALUES (?)&#39;, [&#39;Bob&#39;]) // Works
+</code></pre>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Runs DELETE FROM on each user table</li>
+<li>Resets AUTOINCREMENT counters</li>
+<li>Preserves table structure</li>
+<li>Triggers auto-save if configured</li>
+</ul>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>Does not clear <code>_migrations</code> table</li>
+<li>Use for testing or &quot;reset to empty&quot; functionality</li>
+</ul>
+<hr>
+<h2><code>destroy()</code></h2>
+<p>Completely removes the database including persistent storage.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">destroy(): Promise&lt;void&gt;
+</code></pre>
+<p><strong>Returns:</strong> <code>Promise&lt;void&gt;</code></p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+})
+
+// Later, user wants to delete all data
+await db.destroy()
+
+// Database is closed and storage is cleared
+// Creating with same key starts fresh
+const fresh = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+})
+</code></pre>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Removes data from persistent storage</li>
+<li>Calls close() internally</li>
+<li>After destroy, the database is unusable</li>
+</ul>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>Use for &quot;delete my data&quot; functionality</li>
+<li>If no persistence configured, same as close()</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

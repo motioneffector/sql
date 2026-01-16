@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@motioneffector/sql - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>@motioneffector/sql</h1>
+<p>SQLite in your browser. This library wraps SQL.js to give you a real relational database running entirely client-side via WebAssembly. No server needed, no new query language to learn. If you know SQL, you already know how to use this. Full ACID transactions, schema migrations, and automatic persistence to browser storage.</p>
+<h2>I want to...</h2>
+<table>
+<thead>
+<tr>
+<th>Goal</th>
+<th>Where to go</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Get up and running quickly</td>
+<td><a href="your-first-database.html">Your First Database</a></td>
+</tr>
+<tr>
+<td>Understand how persistence works</td>
+<td><a href="concept-persistence.html">Persistence</a></td>
+</tr>
+<tr>
+<td>Set up database migrations</td>
+<td><a href="guide-schema-migrations.html">Schema Migrations</a></td>
+</tr>
+<tr>
+<td>Perform CRUD operations easily</td>
+<td><a href="guide-using-table-helpers.html">Using Table Helpers</a></td>
+</tr>
+<tr>
+<td>Handle concurrent operations</td>
+<td><a href="concept-transactions.html">Transactions</a></td>
+</tr>
+<tr>
+<td>Export/backup my database</td>
+<td><a href="guide-export-and-import.html">Export and Import</a></td>
+</tr>
+<tr>
+<td>Look up a specific method</td>
+<td><a href="api-createdatabase.html">API Reference</a></td>
+</tr>
+</tbody></table>
+<h2>Key Concepts</h2>
+<h3>Database</h3>
+<p>The <code>Database</code> object is your interface to SQLite. Create one with <code>createDatabase()</code>, then use its methods to execute SQL. The database lives in memory but can automatically persist to IndexedDB or localStorage.</p>
+<h3>Query Methods</h3>
+<p>Four methods cover all your data access needs: <code>exec()</code> for DDL and multi-statement scripts, <code>run()</code> for mutations that return change counts, <code>get()</code> for fetching a single row, and <code>all()</code> for fetching multiple rows. All support parameterized queries for security.</p>
+<h3>Persistence</h3>
+<p>Configure <code>persist: { key, storage }</code> when creating the database to automatically save changes to browser storage. Auto-save is debounced to batch rapid changes. You can also manually control when to save or reload.</p>
+<h2>Quick Example</h2>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+// Create a persistent database
+const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+})
+
+// Create a table
+db.exec(`
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE
+  )
+`)
+
+// Insert data
+db.run(&#39;INSERT INTO users (name, email) VALUES (?, ?)&#39;, [&#39;Alice&#39;, &#39;alice@example.com&#39;])
+
+// Query data
+const user = db.get&lt;{ id: number; name: string; email: string }&gt;(
+  &#39;SELECT * FROM users WHERE id = ?&#39;,
+  [1]
+)
+
+console.log(user) // { id: 1, name: &#39;Alice&#39;, email: &#39;alice@example.com&#39; }
+</code></pre>
+<hr>
+<p><strong><a href="api-createdatabase.html">Full API Reference →</a></strong></p>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

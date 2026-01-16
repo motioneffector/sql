@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schema Migrations - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Schema Migrations</h1>
+<p>Migrations let you evolve your database schema over time without losing data. Define schema changes as versioned scripts, and the library applies only the ones that haven&#39;t run yet.</p>
+<h2>Prerequisites</h2>
+<p>Before starting, you should:</p>
+<ul>
+<li><a href="your-first-database.html">Create a database</a></li>
+<li><a href="concept-query-methods.html">Understand basic queries</a></li>
+</ul>
+<h2>Overview</h2>
+<p>We&#39;ll set up migrations by:</p>
+<ol>
+<li>Defining migration objects</li>
+<li>Running migrations on startup</li>
+<li>Checking the current version</li>
+<li>Rolling back when needed</li>
+</ol>
+<h2>Step 1: Define Migrations</h2>
+<p>Each migration needs a version number and an <code>up</code> script. The <code>down</code> script is optional but needed for rollback.</p>
+<pre><code class="language-typescript">import type { Migration } from &#39;@motioneffector/sql&#39;
+
+const migrations: Migration[] = [
+  {
+    version: 1,
+    up: `
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL
+      )
+    `,
+    down: &#39;DROP TABLE users&#39;
+  },
+  {
+    version: 2,
+    up: `
+      CREATE TABLE posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        title TEXT NOT NULL,
+        body TEXT,
+        created_at TEXT NOT NULL
+      )
+    `,
+    down: &#39;DROP TABLE posts&#39;
+  },
+  {
+    version: 3,
+    up: &#39;CREATE INDEX idx_posts_user ON posts(user_id)&#39;,
+    down: &#39;DROP INDEX idx_posts_user&#39;
+  }
+]
+</code></pre>
+<p>Versions must be positive integers. They run in ascending order regardless of array order.</p>
+<h2>Step 2: Run Migrations on Startup</h2>
+<p>Call <code>db.migrate()</code> when your app starts. It&#39;s safe to call every time—only unapplied migrations run.</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+})
+
+const applied = await db.migrate(migrations)
+
+if (applied.length &gt; 0) {
+  console.log(`Applied migrations: ${applied.join(&#39;, &#39;)}`)
+} else {
+  console.log(&#39;Database is up to date&#39;)
+}
+</code></pre>
+<h2>Step 3: Check Current Version</h2>
+<p>Query the migration version to see your schema state:</p>
+<pre><code class="language-typescript">const version = db.getMigrationVersion()
+console.log(`Database schema version: ${version}`)
+
+if (version &lt; 3) {
+  console.log(&#39;Please update the app to apply latest migrations&#39;)
+}
+</code></pre>
+<h2>Step 4: Roll Back When Needed</h2>
+<p>During development, you might need to undo migrations:</p>
+<pre><code class="language-typescript">// Roll back to version 1 (undoes versions 2 and 3)
+const rolledBack = await db.rollback(1, migrations)
+console.log(`Rolled back: ${rolledBack.join(&#39;, &#39;)}`) // [3, 2]
+
+// Roll back everything
+await db.rollback(0, migrations)
+</code></pre>
+<p>Rollback requires the migrations array because it needs the <code>down</code> scripts.</p>
+<h2>Complete Example</h2>
+<p>A typical startup pattern with error handling:</p>
+<pre><code class="language-typescript">import { createDatabase, MigrationError } from &#39;@motioneffector/sql&#39;
+import type { Migration } from &#39;@motioneffector/sql&#39;
+
+const migrations: Migration[] = [
+  {
+    version: 1,
+    up: `
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL UNIQUE
+      )
+    `,
+    down: &#39;DROP TABLE users&#39;
+  },
+  {
+    version: 2,
+    up: &#39;ALTER TABLE users ADD COLUMN name TEXT&#39;,
+    down: `
+      CREATE TABLE users_backup AS SELECT id, email FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_backup RENAME TO users;
+    `
+  }
+]
+
+async function initDatabase() {
+  const db = await createDatabase({
+    persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+  })
+
+  try {
+    const applied = await db.migrate(migrations)
+    console.log(`Database ready (version ${db.getMigrationVersion()})`)
+    if (applied.length &gt; 0) {
+      console.log(`Applied: ${applied.join(&#39;, &#39;)}`)
+    }
+  } catch (error) {
+    if (error instanceof MigrationError) {
+      console.error(`Migration ${error.version} failed: ${error.message}`)
+      // Consider: show user an error, try recovery, etc.
+    }
+    throw error
+  }
+
+  return db
+}
+</code></pre>
+<h2>Variations</h2>
+<h3>Adding Columns</h3>
+<p>SQLite has limited ALTER TABLE support. For simple additions:</p>
+<pre><code class="language-typescript">{
+  version: 4,
+  up: &#39;ALTER TABLE users ADD COLUMN avatar_url TEXT&#39;,
+  down: `
+    CREATE TABLE users_new AS SELECT id, email, name FROM users;
+    DROP TABLE users;
+    ALTER TABLE users_new RENAME TO users;
+  `
+}
+</code></pre>
+<h3>Data Migrations</h3>
+<p>Transform data as part of a schema change:</p>
+<pre><code class="language-typescript">{
+  version: 5,
+  up: `
+    -- Add new column
+    ALTER TABLE users ADD COLUMN display_name TEXT;
+
+    -- Populate from existing data
+    UPDATE users SET display_name = email WHERE display_name IS NULL;
+  `,
+  down: `
+    CREATE TABLE users_new AS SELECT id, email, name, avatar_url FROM users;
+    DROP TABLE users;
+    ALTER TABLE users_new RENAME TO users;
+  `
+}
+</code></pre>
+<h3>Creating Indexes</h3>
+<p>Add indexes for query performance:</p>
+<pre><code class="language-typescript">{
+  version: 6,
+  up: `
+    CREATE INDEX idx_posts_created ON posts(created_at DESC);
+    CREATE INDEX idx_posts_user_created ON posts(user_id, created_at DESC);
+  `,
+  down: `
+    DROP INDEX idx_posts_created;
+    DROP INDEX idx_posts_user_created;
+  `
+}
+</code></pre>
+<h3>Gaps in Version Numbers</h3>
+<p>Versions don&#39;t need to be sequential. This is useful for feature branches:</p>
+<pre><code class="language-typescript">const migrations: Migration[] = [
+  { version: 1, up: &#39;...&#39; },
+  { version: 2, up: &#39;...&#39; },
+  { version: 10, up: &#39;...&#39; },  // Feature A
+  { version: 20, up: &#39;...&#39; },  // Feature B
+]
+</code></pre>
+<h2>Troubleshooting</h2>
+<h3>Migration Fails with Syntax Error</h3>
+<p><strong>Symptom:</strong> <code>SqlSyntaxError</code> during migration.</p>
+<p><strong>Cause:</strong> Invalid SQL in the <code>up</code> script.</p>
+<p><strong>Solution:</strong> Test your SQL in a SQLite client first. Check for SQLite-specific syntax (it differs from MySQL/PostgreSQL).</p>
+<h3>Can&#39;t Roll Back</h3>
+<p><strong>Symptom:</strong> <code>MigrationError: Migration X has no down script</code>.</p>
+<p><strong>Cause:</strong> The migration doesn&#39;t have a <code>down</code> property.</p>
+<p><strong>Solution:</strong> Add a <code>down</code> script, or accept that rollback isn&#39;t available for that version.</p>
+<h3>Foreign Key Errors</h3>
+<p><strong>Symptom:</strong> Migration fails with foreign key constraint error.</p>
+<p><strong>Cause:</strong> Creating tables in wrong order, or referencing non-existent tables.</p>
+<p><strong>Solution:</strong> Order your migrations so referenced tables are created first.</p>
+<h2>See Also</h2>
+<ul>
+<li><strong><a href="concept-migrations.html">Migrations Concept</a></strong> - How the migration system works</li>
+<li><strong><a href="api-migration-methods.html">Migration Methods API</a></strong> - Complete method reference</li>
+<li><strong><a href="concept-transactions.html">Transactions</a></strong> - Each migration runs in a transaction</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transactions API - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Transactions API</h1>
+<p>Methods for transaction management.</p>
+<hr>
+<h2><code>transaction()</code></h2>
+<p>Executes a function within a database transaction.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">transaction&lt;T&gt;(fn: () =&gt; T | Promise&lt;T&gt;): Promise&lt;T&gt;
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>fn</code></td>
+<td><code>() =&gt; T | Promise&lt;T&gt;</code></td>
+<td>Yes</td>
+<td>Function to execute within transaction</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>Promise&lt;T&gt;</code> — The return value of the callback function</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">// Sync callback
+await db.transaction(() =&gt; {
+  db.run(&#39;INSERT INTO orders (user_id) VALUES (?)&#39;, [1])
+  db.run(&#39;UPDATE inventory SET quantity = quantity - 1 WHERE id = ?&#39;, [42])
+})
+
+// Async callback
+const orderId = await db.transaction(async () =&gt; {
+  const result = db.run(&#39;INSERT INTO orders (user_id) VALUES (?)&#39;, [1])
+  await notifyUser(1)
+  return result.lastInsertRowId
+})
+
+// With error handling
+try {
+  await db.transaction(() =&gt; {
+    db.run(&#39;INSERT INTO users (email) VALUES (?)&#39;, [&#39;taken@example.com&#39;])
+  })
+} catch (error) {
+  // Transaction was rolled back
+  console.error(&#39;Failed:&#39;, error.message)
+}
+</code></pre>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>Wraps the callback in BEGIN/COMMIT</li>
+<li>Rolls back and re-throws on any error</li>
+<li>Nested calls use savepoints (inner failure doesn&#39;t abort outer if caught)</li>
+<li>Concurrent calls are queued and processed serially</li>
+</ul>
+<p><strong>Throws:</strong></p>
+<ul>
+<li>Re-throws any error from the callback after rolling back</li>
+</ul>
+<hr>
+<h2><code>inTransaction</code></h2>
+<p>Read-only property indicating if currently inside a transaction.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">readonly inTransaction: boolean
+</code></pre>
+<p><strong>Returns:</strong> <code>boolean</code> — <code>true</code> if inside a transaction callback, <code>false</code> otherwise</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">console.log(db.inTransaction) // false
+
+await db.transaction(() =&gt; {
+  console.log(db.inTransaction) // true
+
+  db.transaction(() =&gt; {
+    console.log(db.inTransaction) // true (nested)
+  })
+})
+
+console.log(db.inTransaction) // false
+</code></pre>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>This is a read-only property; assigning to it throws an error</li>
+<li>Returns <code>true</code> even in nested transactions (savepoints)</li>
+<li>Returns <code>false</code> after transaction completes or rolls back</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

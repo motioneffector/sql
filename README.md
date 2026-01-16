@@ -19,7 +19,7 @@ A lightweight TypeScript wrapper for SQL.js with migrations, persistence, and fu
 - **Import/Export** - Save and load database files
 - **Table Helpers** - Convenient CRUD operations for common patterns
 
-[Read the full manual →](https://github.com/motioneffector/sql/wiki)
+[Read the full manual →](https://motioneffector.github.io/sql/manual/)
 
 ## Quick Start
 

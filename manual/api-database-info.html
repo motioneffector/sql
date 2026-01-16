@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database Info API - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Database Info API</h1>
+<p>Methods for schema introspection.</p>
+<hr>
+<h2><code>getTables()</code></h2>
+<p>Returns a list of table names in the database.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">getTables(): string[]
+</code></pre>
+<p><strong>Returns:</strong> <code>string[]</code> — Array of table names</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">db.exec(&#39;CREATE TABLE users (id INTEGER PRIMARY KEY)&#39;)
+db.exec(&#39;CREATE TABLE posts (id INTEGER PRIMARY KEY)&#39;)
+
+const tables = db.getTables()
+console.log(tables) // [&#39;users&#39;, &#39;posts&#39;]
+</code></pre>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>Excludes SQLite system tables (sqlite_*)</li>
+<li>Excludes the internal <code>_migrations</code> table</li>
+<li>Order is not guaranteed</li>
+</ul>
+<hr>
+<h2><code>getTableInfo()</code></h2>
+<p>Returns column information for a table.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">getTableInfo(tableName: string): ColumnInfo[]
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tableName</code></td>
+<td><code>string</code></td>
+<td>Yes</td>
+<td>Name of the table</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>ColumnInfo[]</code> — Array of column definitions</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">db.exec(`
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE,
+    age INTEGER DEFAULT 0
+  )
+`)
+
+const columns = db.getTableInfo(&#39;users&#39;)
+console.log(columns)
+// [
+//   { name: &#39;id&#39;, type: &#39;INTEGER&#39;, nullable: false, defaultValue: null, primaryKey: true },
+//   { name: &#39;name&#39;, type: &#39;TEXT&#39;, nullable: false, defaultValue: null, primaryKey: false },
+//   { name: &#39;email&#39;, type: &#39;TEXT&#39;, nullable: true, defaultValue: null, primaryKey: false },
+//   { name: &#39;age&#39;, type: &#39;INTEGER&#39;, nullable: true, defaultValue: &#39;0&#39;, primaryKey: false }
+// ]
+</code></pre>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>SqlNotFoundError</code> — If table doesn&#39;t exist</li>
+</ul>
+<hr>
+<h2><code>getIndexes()</code></h2>
+<p>Returns index information for tables.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">getIndexes(tableName?: string): IndexInfo[]
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tableName</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td>Filter to specific table</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>IndexInfo[]</code> — Array of index definitions</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">db.exec(`
+  CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT UNIQUE);
+  CREATE INDEX idx_email ON users(email);
+`)
+
+// All indexes
+const allIndexes = db.getIndexes()
+
+// Indexes for specific table
+const userIndexes = db.getIndexes(&#39;users&#39;)
+console.log(userIndexes)
+// [
+//   { name: &#39;idx_email&#39;, table: &#39;users&#39;, unique: false, columns: [&#39;email&#39;] }
+// ]
+</code></pre>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>Excludes SQLite auto-generated indexes (sqlite_autoindex_*)</li>
+<li>UNIQUE constraints may appear as indexes</li>
+</ul>
+<hr>
+<h2>Types</h2>
+<h3><code>ColumnInfo</code></h3>
+<pre><code class="language-typescript">interface ColumnInfo {
+  name: string
+  type: string
+  nullable: boolean
+  defaultValue: unknown
+  primaryKey: boolean
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>Column name</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td>Declared type (e.g., &#39;INTEGER&#39;, &#39;TEXT&#39;, &#39;BLOB&#39;)</td>
+</tr>
+<tr>
+<td><code>nullable</code></td>
+<td><code>boolean</code></td>
+<td>Whether NULL values are allowed</td>
+</tr>
+<tr>
+<td><code>defaultValue</code></td>
+<td><code>unknown</code></td>
+<td>Default value or null</td>
+</tr>
+<tr>
+<td><code>primaryKey</code></td>
+<td><code>boolean</code></td>
+<td>Whether this is a primary key column</td>
+</tr>
+</tbody></table>
+<h3><code>IndexInfo</code></h3>
+<pre><code class="language-typescript">interface IndexInfo {
+  name: string
+  table: string
+  unique: boolean
+  columns: string[]
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>Index name</td>
+</tr>
+<tr>
+<td><code>table</code></td>
+<td><code>string</code></td>
+<td>Table the index is on</td>
+</tr>
+<tr>
+<td><code>unique</code></td>
+<td><code>boolean</code></td>
+<td>Whether this is a UNIQUE index</td>
+</tr>
+<tr>
+<td><code>columns</code></td>
+<td><code>string[]</code></td>
+<td>Column names in the index</td>
+</tr>
+</tbody></table>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

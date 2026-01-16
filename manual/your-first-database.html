@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your First Database - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Your First Database</h1>
+<p>Create a working in-browser SQLite database in about 5 minutes.</p>
+<p>By the end of this guide, you&#39;ll have a database with a users table, inserted data, and queried results.</p>
+<h2>What We&#39;re Building</h2>
+<p>A simple user database that demonstrates the core workflow: create a database, define a schema, insert rows, and query them back. The final output will look like:</p>
+<pre><code>{ id: 1, name: &#39;Alice&#39;, email: &#39;alice@example.com&#39; }
+</code></pre>
+<h2>Step 1: Import and Create the Database</h2>
+<p>The library exports a single factory function. It&#39;s async because it needs to load the SQL.js WebAssembly binary.</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+const db = await createDatabase()
+</code></pre>
+<p>This creates an empty in-memory database. We&#39;ll add persistence later.</p>
+<h2>Step 2: Create a Table</h2>
+<p>Use <code>exec()</code> for DDL statements like CREATE TABLE. This method executes raw SQL without parameters.</p>
+<pre><code class="language-typescript">db.exec(`
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE
+  )
+`)
+</code></pre>
+<p>The table now exists in memory.</p>
+<h2>Step 3: Insert Data</h2>
+<p>Use <code>run()</code> for INSERT, UPDATE, and DELETE. The second argument is an array of values that replace the <code>?</code> placeholders.</p>
+<pre><code class="language-typescript">const result = db.run(
+  &#39;INSERT INTO users (name, email) VALUES (?, ?)&#39;,
+  [&#39;Alice&#39;, &#39;alice@example.com&#39;]
+)
+
+console.log(result.lastInsertRowId) // 1
+console.log(result.changes)         // 1
+</code></pre>
+<p>Always use parameterized queries for user input to prevent SQL injection.</p>
+<h2>Step 4: Query Data</h2>
+<p>Use <code>get()</code> to fetch a single row, or <code>all()</code> to fetch multiple rows. Both accept a type parameter for TypeScript.</p>
+<pre><code class="language-typescript">// Single row
+const user = db.get&lt;{ id: number; name: string; email: string }&gt;(
+  &#39;SELECT * FROM users WHERE id = ?&#39;,
+  [1]
+)
+console.log(user) // { id: 1, name: &#39;Alice&#39;, email: &#39;alice@example.com&#39; }
+
+// Multiple rows
+const users = db.all&lt;{ id: number; name: string; email: string }&gt;(
+  &#39;SELECT * FROM users&#39;
+)
+console.log(users.length) // 1
+</code></pre>
+<h2>Step 5: Close the Database</h2>
+<p>When you&#39;re done, close the database to free resources.</p>
+<pre><code class="language-typescript">db.close()
+</code></pre>
+<h2>The Complete Code</h2>
+<p>Here&#39;s everything together:</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+
+async function main() {
+  // Create database
+  const db = await createDatabase()
+
+  // Create table
+  db.exec(`
+    CREATE TABLE users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE
+    )
+  `)
+
+  // Insert data
+  db.run(
+    &#39;INSERT INTO users (name, email) VALUES (?, ?)&#39;,
+    [&#39;Alice&#39;, &#39;alice@example.com&#39;]
+  )
+
+  // Query data
+  const user = db.get&lt;{ id: number; name: string; email: string }&gt;(
+    &#39;SELECT * FROM users WHERE id = ?&#39;,
+    [1]
+  )
+  console.log(user)
+
+  // Clean up
+  db.close()
+}
+
+main()
+</code></pre>
+<h2>What&#39;s Next?</h2>
+<p>Now that you have the basics:</p>
+<ul>
+<li><strong><a href="concept-query-methods.html">Understand Query Methods</a></strong> - Learn the differences between <code>exec</code>, <code>run</code>, <code>get</code>, and <code>all</code></li>
+<li><strong><a href="guide-setting-up-persistence.html">Set Up Persistence</a></strong> - Keep your data between page reloads</li>
+<li><strong><a href="guide-using-table-helpers.html">Use Table Helpers</a></strong> - Simplified CRUD without writing SQL</li>
+<li><strong><a href="api-createdatabase.html">Explore the API</a></strong> - Full reference when you need details</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

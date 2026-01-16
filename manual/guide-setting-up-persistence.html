@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setting Up Persistence - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Setting Up Persistence</h1>
+<p>Persistence saves your database to browser storage so data survives page reloads. This guide walks through configuration options and common patterns.</p>
+<h2>Prerequisites</h2>
+<p>Before starting, you should:</p>
+<ul>
+<li><a href="your-first-database.html">Create a database</a></li>
+</ul>
+<h2>Overview</h2>
+<p>We&#39;ll configure persistence by:</p>
+<ol>
+<li>Choosing a storage backend</li>
+<li>Enabling automatic persistence</li>
+<li>Controlling save timing</li>
+<li>Handling errors gracefully</li>
+</ol>
+<h2>Step 1: Choose a Storage Backend</h2>
+<p>Two built-in options are available:</p>
+<p><strong>IndexedDB</strong> (recommended for most cases):</p>
+<pre><code class="language-typescript">const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+})
+</code></pre>
+<p><strong>localStorage</strong> (simpler but limited):</p>
+<pre><code class="language-typescript">const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;localstorage&#39; }
+})
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>IndexedDB</th>
+<th>localStorage</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Storage limit</td>
+<td>~50MB+</td>
+<td>~5MB</td>
+</tr>
+<tr>
+<td>Performance</td>
+<td>Better for large data</td>
+<td>Simple and fast for small data</td>
+</tr>
+<tr>
+<td>Async-friendly</td>
+<td>Yes</td>
+<td>Blocking but works</td>
+</tr>
+<tr>
+<td>Browser support</td>
+<td>Modern browsers</td>
+<td>All browsers</td>
+</tr>
+</tbody></table>
+<p>Use IndexedDB unless you have a specific reason for localStorage.</p>
+<h2>Step 2: Enable Automatic Persistence</h2>
+<p>With <code>persist</code> configured, auto-save is enabled by default. Changes save automatically after a debounce period:</p>
+<pre><code class="language-typescript">const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+  // autoSave: true (default when persist is set)
+  // autoSaveDebounce: 1000 (default: 1 second)
+})
+
+// Make changes - they auto-save after 1 second of inactivity
+db.run(&#39;INSERT INTO notes (text) VALUES (?)&#39;, [&#39;Hello&#39;])
+db.run(&#39;INSERT INTO notes (text) VALUES (?)&#39;, [&#39;World&#39;])
+// Both changes save in a single write
+</code></pre>
+<h2>Step 3: Control Save Timing</h2>
+<p>Adjust the debounce for your use case:</p>
+<pre><code class="language-typescript">// Save quickly (100ms) for real-time feel
+const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; },
+  autoSaveDebounce: 100
+})
+
+// Save slowly (5s) to reduce writes
+const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; },
+  autoSaveDebounce: 5000
+})
+
+// Disable auto-save for manual control
+const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; },
+  autoSave: false
+})
+
+// Manual save when you decide
+await db.save()
+</code></pre>
+<h2>Step 4: Handle Errors Gracefully</h2>
+<p>Storage can fail (quota exceeded, private browsing, etc.). The library logs errors but doesn&#39;t crash:</p>
+<pre><code class="language-typescript">const db = await createDatabase({
+  persist: { key: &#39;my-app&#39;, storage: &#39;indexeddb&#39; }
+})
+
+// Auto-save failures are logged to console.error
+// Manual save throws so you can handle it:
+try {
+  await db.save()
+} catch (error) {
+  console.error(&#39;Save failed:&#39;, error.message)
+  // Show user a warning, suggest data export, etc.
+}
+</code></pre>
+<h2>Complete Example</h2>
+<p>A typical app initialization with persistence:</p>
+<pre><code class="language-typescript">import { createDatabase } from &#39;@motioneffector/sql&#39;
+import type { Database, Migration } from &#39;@motioneffector/sql&#39;
+
+const migrations: Migration[] = [
+  {
+    version: 1,
+    up: &#39;CREATE TABLE notes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, created_at TEXT)&#39;
+  }
+]
+
+async function initApp(): Promise&lt;Database&gt; {
+  // Create persistent database
+  const db = await createDatabase({
+    persist: { key: &#39;notes-app&#39;, storage: &#39;indexeddb&#39; },
+    autoSaveDebounce: 500
+  })
+
+  // Run migrations
+  await db.migrate(migrations)
+
+  // Data loaded automatically from storage
+  const noteCount = db.get&lt;{ count: number }&gt;(&#39;SELECT COUNT(*) as count FROM notes&#39;)
+  console.log(`Loaded ${noteCount?.count ?? 0} notes from storage`)
+
+  return db
+}
+
+// Usage
+const db = await initApp()
+
+// Add a note - auto-saves after 500ms
+db.run(&#39;INSERT INTO notes (text, created_at) VALUES (?, ?)&#39;, [
+  &#39;My first note&#39;,
+  new Date().toISOString()
+])
+</code></pre>
+<h2>Variations</h2>
+<h3>Custom Storage Adapter</h3>
+<p>Implement <code>StorageAdapter</code> to store anywhere:</p>
+<pre><code class="language-typescript">import type { StorageAdapter } from &#39;@motioneffector/sql&#39;
+
+const remoteStorage: StorageAdapter = {
+  async getItem(key: string): Promise&lt;Uint8Array | null&gt; {
+    const response = await fetch(`/api/storage/${key}`)
+    if (!response.ok) return null
+    return new Uint8Array(await response.arrayBuffer())
+  },
+
+  async setItem(key: string, value: Uint8Array): Promise&lt;void&gt; {
+    await fetch(`/api/storage/${key}`, {
+      method: &#39;PUT&#39;,
+      headers: { &#39;Content-Type&#39;: &#39;application/octet-stream&#39; },
+      body: value
+    })
+  },
+
+  async removeItem(key: string): Promise&lt;void&gt; {
+    await fetch(`/api/storage/${key}`, { method: &#39;DELETE&#39; })
+  }
+}
+
+const db = await createDatabase({
+  persist: { key: &#39;user-123-db&#39;, storage: remoteStorage }
+})
+</code></pre>
+<h3>Discarding Changes</h3>
+<p>Reload from storage to undo uncommitted changes:</p>
+<pre><code class="language-typescript">// User makes some edits
+db.run(&#39;DELETE FROM important_data WHERE id = 1&#39;)
+
+// User clicks &quot;Discard Changes&quot;
+await db.load()
+// Database reverts to last saved state
+</code></pre>
+<h3>Multiple Databases</h3>
+<p>Each database needs a unique key:</p>
+<pre><code class="language-typescript">const userDb = await createDatabase({
+  persist: { key: &#39;user-data&#39;, storage: &#39;indexeddb&#39; }
+})
+
+const cacheDb = await createDatabase({
+  persist: { key: &#39;cache-data&#39;, storage: &#39;indexeddb&#39; }
+})
+</code></pre>
+<h3>Forcing Immediate Save</h3>
+<p>When auto-save isn&#39;t fast enough:</p>
+<pre><code class="language-typescript">// User clicks &quot;Save Now&quot;
+await db.save()
+console.log(&#39;Saved!&#39;)
+
+// Before closing tab
+window.addEventListener(&#39;beforeunload&#39;, () =&gt; {
+  db.save() // Fire and forget
+})
+</code></pre>
+<h2>Troubleshooting</h2>
+<h3>Data Not Persisting</h3>
+<p><strong>Symptom:</strong> Data gone after page reload.</p>
+<p><strong>Cause:</strong> <code>persist</code> option not configured, or storage failed.</p>
+<p><strong>Solution:</strong> Check that <code>persist</code> is passed to <code>createDatabase()</code>. Check console for storage errors.</p>
+<h3>Quota Exceeded</h3>
+<p><strong>Symptom:</strong> <code>QuotaExceededError</code> in console.</p>
+<p><strong>Cause:</strong> Storage limit reached (~5MB for localStorage).</p>
+<p><strong>Solution:</strong> Switch to IndexedDB, or implement data cleanup logic. Export and clear old data.</p>
+<h3>Private Browsing Issues</h3>
+<p><strong>Symptom:</strong> Errors about storage being unavailable.</p>
+<p><strong>Cause:</strong> Safari and some browsers restrict storage in private mode.</p>
+<p><strong>Solution:</strong> Catch the error and warn users that data won&#39;t persist. Consider offering export as alternative.</p>
+<h2>See Also</h2>
+<ul>
+<li><strong><a href="concept-persistence.html">Persistence Concept</a></strong> - How persistence works internally</li>
+<li><strong><a href="guide-export-and-import.html">Export and Import</a></strong> - File-based backup alternative</li>
+<li><strong><a href="api-persistence-methods.html">Persistence API</a></strong> - save() and load() reference</li>
+</ul>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

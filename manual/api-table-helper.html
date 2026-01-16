@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Table Helper API - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Table Helper API</h1>
+<p>High-level CRUD operations without writing SQL.</p>
+<hr>
+<h2><code>table()</code></h2>
+<p>Creates a helper object for table operations.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">table&lt;T extends Record&lt;string, unknown&gt;&gt;(
+  tableName: string,
+  options?: TableOptions
+): TableHelper&lt;T&gt;
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tableName</code></td>
+<td><code>string</code></td>
+<td>Yes</td>
+<td>Name of the table</td>
+</tr>
+<tr>
+<td><code>options</code></td>
+<td><code>TableOptions</code></td>
+<td>No</td>
+<td>Configuration options</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>TableHelper&lt;T&gt;</code> — Object with CRUD methods</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">interface User {
+  id: number
+  name: string
+  email: string
+}
+
+const users = db.table&lt;User&gt;(&#39;users&#39;)
+const products = db.table(&#39;products&#39;, { primaryKey: &#39;sku&#39; })
+</code></pre>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>Error</code> — If tableName is empty</li>
+</ul>
+<hr>
+<h2><code>TableHelper.insert()</code></h2>
+<p>Inserts a row and returns the new ID.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">insert(data: Partial&lt;T&gt;): number
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>data</code></td>
+<td><code>Partial&lt;T&gt;</code></td>
+<td>Yes</td>
+<td>Column values to insert</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>number</code> — The inserted row&#39;s primary key value</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const id = users.insert({ name: &#39;Alice&#39;, email: &#39;alice@example.com&#39; })
+console.log(id) // 1
+</code></pre>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>Omit columns with defaults (they use the default)</li>
+<li><code>undefined</code> values are omitted from the INSERT</li>
+<li><code>null</code> values insert NULL</li>
+</ul>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>SqlConstraintError</code> — On NOT NULL, UNIQUE, or FK violation</li>
+<li><code>SqlNotFoundError</code> — If table doesn&#39;t exist</li>
+</ul>
+<hr>
+<h2><code>TableHelper.find()</code></h2>
+<p>Finds a row by its primary key.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">find(id: unknown, options?: { key?: string }): T | undefined
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td><code>unknown</code></td>
+<td>Yes</td>
+<td>Primary key value</td>
+</tr>
+<tr>
+<td><code>options.key</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td>Override the lookup column for this call</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>T | undefined</code> — The row object, or undefined if not found</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const user = users.find(1)
+const byEmail = users.find(&#39;alice@example.com&#39;, { key: &#39;email&#39; })
+</code></pre>
+<hr>
+<h2><code>TableHelper.where()</code></h2>
+<p>Finds rows matching conditions.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">where(conditions: Partial&lt;T&gt;): T[]
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>conditions</code></td>
+<td><code>Partial&lt;T&gt;</code></td>
+<td>Yes</td>
+<td>Column-value pairs to match (AND logic)</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>T[]</code> — Array of matching rows</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">// Single condition
+const admins = users.where({ role: &#39;admin&#39; })
+
+// Multiple conditions (AND)
+const activeAdmins = users.where({ role: &#39;admin&#39;, active: 1 })
+
+// Empty conditions returns all rows
+const all = users.where({})
+
+// NULL matching
+const unverified = users.where({ verified_at: null })
+</code></pre>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>SqlNotFoundError</code> — If table or column doesn&#39;t exist</li>
+</ul>
+<hr>
+<h2><code>TableHelper.update()</code></h2>
+<p>Updates a row by primary key.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">update(
+  id: unknown,
+  data: Partial&lt;T&gt;,
+  options?: { key?: string }
+): number
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td><code>unknown</code></td>
+<td>Yes</td>
+<td>Primary key value</td>
+</tr>
+<tr>
+<td><code>data</code></td>
+<td><code>Partial&lt;T&gt;</code></td>
+<td>Yes</td>
+<td>Columns to update</td>
+</tr>
+<tr>
+<td><code>options.key</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td>Override the lookup column</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>number</code> — Number of rows updated (0 or 1)</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const changed = users.update(1, { name: &#39;Alicia&#39; })
+console.log(changed) // 1
+
+// Update by different column
+users.update(&#39;alice@example.com&#39;, { active: 0 }, { key: &#39;email&#39; })
+</code></pre>
+<p><strong>Notes:</strong></p>
+<ul>
+<li><code>undefined</code> values are ignored (column not updated)</li>
+<li><code>null</code> values set the column to NULL</li>
+</ul>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>SqlConstraintError</code> — On constraint violation</li>
+</ul>
+<hr>
+<h2><code>TableHelper.delete()</code></h2>
+<p>Deletes a row by primary key.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">delete(id: unknown, options?: { key?: string }): number
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td><code>unknown</code></td>
+<td>Yes</td>
+<td>Primary key value</td>
+</tr>
+<tr>
+<td><code>options.key</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td>Override the lookup column</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>number</code> — Number of rows deleted (0 or 1)</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const deleted = users.delete(1)
+console.log(deleted) // 1
+
+// Delete by different column
+users.delete(&#39;alice@example.com&#39;, { key: &#39;email&#39; })
+</code></pre>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>SqlConstraintError</code> — If foreign key prevents deletion</li>
+</ul>
+<hr>
+<h2><code>TableHelper.count()</code></h2>
+<p>Counts rows, optionally with conditions.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">count(conditions?: Partial&lt;T&gt;): number
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>conditions</code></td>
+<td><code>Partial&lt;T&gt;</code></td>
+<td>No</td>
+<td>Column-value pairs to match</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>number</code> — Count of matching rows</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const total = users.count()
+const admins = users.count({ role: &#39;admin&#39; })
+const activeAdmins = users.count({ role: &#39;admin&#39;, active: 1 })
+</code></pre>
+<hr>
+<h2><code>TableHelper.all()</code></h2>
+<p>Returns all rows in the table.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">all(): T[]
+</code></pre>
+<p><strong>Returns:</strong> <code>T[]</code> — Array of all rows</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">const allUsers = users.all()
+console.log(allUsers.length)
+</code></pre>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>No guaranteed order (use raw SQL with ORDER BY if needed)</li>
+<li>Equivalent to <code>where({})</code></li>
+</ul>
+<hr>
+<h2>Types</h2>
+<h3><code>TableOptions</code></h3>
+<pre><code class="language-typescript">interface TableOptions {
+  primaryKey?: string
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>primaryKey</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td>Primary key column name. Default: <code>&#39;id&#39;</code></td>
+</tr>
+</tbody></table>
+<h3><code>TableHelper&lt;T&gt;</code></h3>
+<pre><code class="language-typescript">interface TableHelper&lt;T extends Record&lt;string, unknown&gt;&gt; {
+  insert(data: Partial&lt;T&gt;): number
+  find(id: unknown, options?: { key?: string }): T | undefined
+  where(conditions: Partial&lt;T&gt;): T[]
+  update(id: unknown, data: Partial&lt;T&gt;, options?: { key?: string }): number
+  delete(id: unknown, options?: { key?: string }): number
+  count(conditions?: Partial&lt;T&gt;): number
+  all(): T[]
+}
+</code></pre>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

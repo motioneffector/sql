@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batch Operations API - @motioneffector/sql</title>
+  <link rel="stylesheet" href="../demo-files/demo.css">
+  <link rel="stylesheet" href="manual.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="header-title">@motioneffector/sql</h1>
+      <p class="header-description">Documentation</p>
+      <nav class="header-links">
+        <a href="../index.html" class="header-link">Demo</a>
+        <a href="https://www.npmjs.com/package/@motioneffector/sql" class="header-link">npm</a>
+        <a href="https://github.com/motioneffector/sql" class="header-link">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="manual-layout">
+      <aside class="manual-sidebar">
+        <nav class="sidebar-nav">
+<p><strong><a href="index.html">@motioneffector/sql</a></strong></p>
+<p><strong>Getting Started</strong></p>
+<ul>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="your-first-database.html">Your First Database</a></li>
+</ul>
+<p><strong>Core Concepts</strong></p>
+<ul>
+<li><a href="concept-database-creation.html">Database Creation</a></li>
+<li><a href="concept-query-methods.html">Query Methods</a></li>
+<li><a href="concept-transactions.html">Transactions</a></li>
+<li><a href="concept-migrations.html">Migrations</a></li>
+<li><a href="concept-persistence.html">Persistence</a></li>
+</ul>
+<p><strong>Guides</strong></p>
+<ul>
+<li><a href="guide-working-with-transactions.html">Working with Transactions</a></li>
+<li><a href="guide-schema-migrations.html">Schema Migrations</a></li>
+<li><a href="guide-using-table-helpers.html">Using Table Helpers</a></li>
+<li><a href="guide-setting-up-persistence.html">Setting Up Persistence</a></li>
+<li><a href="guide-export-and-import.html">Export and Import</a></li>
+<li><a href="guide-prepared-statements.html">Prepared Statements</a></li>
+</ul>
+<p><strong>API Reference</strong></p>
+<ul>
+<li><a href="api-createdatabase.html">createDatabase</a></li>
+<li><a href="api-query-methods.html">Query Methods</a></li>
+<li><a href="api-transactions.html">Transactions</a></li>
+<li><a href="api-migration-methods.html">Migration Methods</a></li>
+<li><a href="api-table-helper.html">Table Helper</a></li>
+<li><a href="api-persistence-methods.html">Persistence Methods</a></li>
+<li><a href="api-export-and-import.html">Export and Import</a></li>
+<li><a href="api-database-info.html">Database Info</a></li>
+<li><a href="api-lifecycle-methods.html">Lifecycle Methods</a></li>
+<li><a href="api-prepared-statements.html">Prepared Statements</a></li>
+<li><a href="api-batch-operations.html">Batch Operations</a></li>
+<li><a href="api-error-classes.html">Error Classes</a></li>
+<li><a href="api-types.html">Types</a></li>
+</ul>
+
+        </nav>
+      </aside>
+
+      <main class="manual-content">
+        <article class="manual-article">
+<h1>Batch Operations API</h1>
+<p>Methods for bulk data operations.</p>
+<hr>
+<h2><code>insertMany()</code></h2>
+<p>Inserts multiple rows efficiently in a single transaction.</p>
+<p><strong>Signature:</strong></p>
+<pre><code class="language-typescript">insertMany(
+  tableName: string,
+  rows: Record&lt;string, unknown&gt;[]
+): number[]
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tableName</code></td>
+<td><code>string</code></td>
+<td>Yes</td>
+<td>Table to insert into</td>
+</tr>
+<tr>
+<td><code>rows</code></td>
+<td><code>Record&lt;string, unknown&gt;[]</code></td>
+<td>Yes</td>
+<td>Array of row objects</td>
+</tr>
+</tbody></table>
+<p><strong>Returns:</strong> <code>number[]</code> — Array of inserted row IDs</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-typescript">db.exec(&#39;CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)&#39;)
+
+const ids = db.insertMany(&#39;users&#39;, [
+  { name: &#39;Alice&#39;, email: &#39;alice@example.com&#39; },
+  { name: &#39;Bob&#39;, email: &#39;bob@example.com&#39; },
+  { name: &#39;Charlie&#39;, email: &#39;charlie@example.com&#39; }
+])
+
+console.log(ids) // [1, 2, 3]
+</code></pre>
+<p><strong>Behavior:</strong></p>
+<ul>
+<li>All rows must have the same columns (based on first row)</li>
+<li>Wraps all inserts in a transaction</li>
+<li>If any insert fails, all are rolled back</li>
+<li>Uses the table helper internally</li>
+</ul>
+<p><strong>Throws:</strong></p>
+<ul>
+<li><code>Error</code> — If rows have inconsistent columns</li>
+<li><code>SqlConstraintError</code> — On constraint violation (all rows rolled back)</li>
+<li><code>SqlNotFoundError</code> — If table doesn&#39;t exist</li>
+</ul>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>More efficient than individual <code>insert()</code> calls</li>
+<li>Returns early with empty array if rows is empty</li>
+<li>Column order is determined by the first row</li>
+</ul>
+<p><strong>Example with Error Handling:</strong></p>
+<pre><code class="language-typescript">try {
+  const ids = db.insertMany(&#39;users&#39;, [
+    { name: &#39;Alice&#39;, email: &#39;alice@example.com&#39; },
+    { name: &#39;Bob&#39;, email: &#39;alice@example.com&#39; }, // Duplicate email!
+    { name: &#39;Charlie&#39;, email: &#39;charlie@example.com&#39; }
+  ])
+} catch (error) {
+  if (error instanceof SqlConstraintError) {
+    console.log(&#39;Batch failed: duplicate or constraint violation&#39;)
+    // No rows were inserted
+  }
+}
+</code></pre>
+
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
