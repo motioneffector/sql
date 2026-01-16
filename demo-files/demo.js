@@ -1,3 +1,7 @@
+// Import library and expose globally for tests
+import * as Library from '../dist/index.js'
+window.Library = Library
+
 // ============================================
 // DATABASE INITIALIZATION
 // ============================================
@@ -5,8 +9,8 @@
 let db1, db2, db3, db4; // Separate databases for each exhibit
 
 async function createDB() {
-  // Use the @motioneffector/sql library instead of sql.js
-  return await window.Library.createDatabase();
+  // Use the @motioneffector/sql library
+  return await Library.createDatabase();
 }
 
 // ============================================
