@@ -6,11 +6,14 @@ window.Library = Library
 // DATABASE INITIALIZATION
 // ============================================
 
+// WASM file location for browser usage (vendored locally)
+const SQL_WASM_PATH = './demo-files/vendor/sql-wasm.wasm'
+
 let db1, db2, db3, db4; // Separate databases for each exhibit
 
 async function createDB() {
-  // Use the @motioneffector/sql library
-  return await Library.createDatabase();
+  // Use the @motioneffector/sql library with browser-compatible WASM path
+  return await Library.createDatabase({ wasmPath: SQL_WASM_PATH });
 }
 
 // ============================================
@@ -691,33 +694,43 @@ document.getElementById('add-note').addEventListener('click', () => {
   renderNotes();
 });
 
-// Custom note
-document.getElementById('note-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.value.trim()) {
-    const content = e.target.value.trim();
-    db4.run(`INSERT INTO notes (content) VALUES ('${content.replace(/'/g, "''")}')`);
-    e.target.value = '';
-    markDirty();
-    renderNotes();
-  }
-});
+// Custom note (optional element)
+const noteInput = document.getElementById('note-input');
+if (noteInput) {
+  noteInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.value.trim()) {
+      const content = e.target.value.trim();
+      db4.run(`INSERT INTO notes (content) VALUES ('${content.replace(/'/g, "''")}')`);
+      e.target.value = '';
+      markDirty();
+      renderNotes();
+    }
+  });
+}
 
-// Save now
-document.getElementById('save-now').addEventListener('click', saveDatabase);
+// Save now (optional element)
+const saveNow = document.getElementById('save-now');
+if (saveNow) saveNow.addEventListener('click', saveDatabase);
 
-// Auto-save toggle
-document.getElementById('auto-save-toggle').addEventListener('change', (e) => {
-  autoSave = e.target.checked;
-});
+// Auto-save toggle (optional element)
+const autoSaveToggle = document.getElementById('auto-save-toggle');
+if (autoSaveToggle) {
+  autoSaveToggle.addEventListener('change', (e) => {
+    autoSave = e.target.checked;
+  });
+}
 
-// Clear all
-document.getElementById('clear-all').addEventListener('click', () => {
-  if (confirm('Are you sure you want to delete all notes?')) {
-    db4.run('DELETE FROM notes');
-    markDirty();
-    renderNotes();
-  }
-});
+// Clear all (optional element)
+const clearAll = document.getElementById('clear-all');
+if (clearAll) {
+  clearAll.addEventListener('click', () => {
+    if (confirm('Are you sure you want to delete all notes?')) {
+      db4.run('DELETE FROM notes');
+      markDirty();
+      renderNotes();
+    }
+  });
+}
 
 // Destroy & Restore
 document.getElementById('destroy-restore').addEventListener('click', async () => {
@@ -776,82 +789,91 @@ document.getElementById('destroy-restore').addEventListener('click', async () =>
   btn.disabled = false;
 });
 
-// Export
-document.getElementById('export-db').addEventListener('click', () => {
-  const data = db4.export();
-  const blob = new Blob([data], { type: 'application/x-sqlite3' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `notes-${Date.now()}.sqlite`;
-  a.click();
-  URL.revokeObjectURL(url);
-});
+// Export (optional element)
+const exportDb = document.getElementById('export-db');
+if (exportDb) {
+  exportDb.addEventListener('click', () => {
+    const data = db4.export();
+    const blob = new Blob([data], { type: 'application/x-sqlite3' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `notes-${Date.now()}.sqlite`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
 
-// Import
-document.getElementById('import-btn').addEventListener('click', () => {
-  document.getElementById('import-file').click();
-});
+// Import (optional elements)
+const importBtn = document.getElementById('import-btn');
+const importFile = document.getElementById('import-file');
+if (importBtn && importFile) {
+  importBtn.addEventListener('click', () => {
+    importFile.click();
+  });
 
-document.getElementById('import-file').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  importFile.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = async (ev) => {
-    try {
-      const data = new Uint8Array(ev.target.result);
-      db4.close();
-      db4 = await window.Library.createDatabase({ data });
-      persistenceData = data;
-      isDirty = false;
-      updateSaveStatus();
-      renderNotes();
-      updateStorageInfo();
-    } catch (err) {
-      alert('Failed to import: ' + err.message);
-    }
-  };
-  reader.readAsArrayBuffer(file);
-  e.target.value = '';
-});
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const data = new Uint8Array(ev.target.result);
+        db4.close();
+        db4 = await window.Library.createDatabase({ data });
+        persistenceData = data;
+        isDirty = false;
+        updateSaveStatus();
+        renderNotes();
+        updateStorageInfo();
+      } catch (err) {
+        alert('Failed to import: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  });
+}
 
-// Drop zone
+// Drop zone (optional element)
 const dropZone = document.getElementById('drop-zone');
 
-dropZone.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  dropZone.classList.add('drag-over');
-});
+if (dropZone) {
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
 
-dropZone.addEventListener('dragleave', () => {
-  dropZone.classList.remove('drag-over');
-});
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('drag-over');
+  });
 
-dropZone.addEventListener('drop', async (e) => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
+  dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
 
-  const file = e.dataTransfer.files[0];
-  if (!file) return;
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = async (ev) => {
-    try {
-      const data = new Uint8Array(ev.target.result);
-      db4.close();
-      db4 = await window.Library.createDatabase({ data });
-      persistenceData = data;
-      isDirty = false;
-      updateSaveStatus();
-      renderNotes();
-      updateStorageInfo();
-    } catch (err) {
-      alert('Failed to import: ' + err.message);
-    }
-  };
-  reader.readAsArrayBuffer(file);
-});
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const data = new Uint8Array(ev.target.result);
+        db4.close();
+        db4 = await window.Library.createDatabase({ data });
+        persistenceData = data;
+        isDirty = false;
+        updateSaveStatus();
+        renderNotes();
+        updateStorageInfo();
+      } catch (err) {
+        alert('Failed to import: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
 
 // ============================================
 // VISUAL DEMO PLAYBACK
