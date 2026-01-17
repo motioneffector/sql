@@ -6,8 +6,8 @@ window.Library = Library
 // DATABASE INITIALIZATION
 // ============================================
 
-// WASM file location for browser usage
-const SQL_WASM_PATH = 'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.wasm'
+// WASM file location for browser usage (vendored locally)
+const SQL_WASM_PATH = './demo-files/vendor/sql-wasm.wasm'
 
 let db1, db2, db3, db4; // Separate databases for each exhibit
 

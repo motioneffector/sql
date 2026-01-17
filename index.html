@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>@motioneffector/sql - Interactive Demo</title>
   <link rel="stylesheet" href="demo-files/demo.css">
-  <!-- Import map to resolve sql.js peer dependency -->
+  <!-- Import map to resolve sql.js peer dependency (vendored locally) -->
   <script type="importmap">
     {
       "imports": {
-        "sql.js": "https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.mjs"
+        "sql.js": "./demo-files/vendor/sql-wasm-esm.js"
       }
     }
   </script>
