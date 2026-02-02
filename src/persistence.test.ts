@@ -187,8 +187,8 @@ describe('IndexedDB Persistence', () => {
     // Manual save should throw with quota error
     await expect(db.save()).rejects.toThrow(/quota/i)
 
-    // Don't close immediately to prevent auto-save attempts
-    await new Promise(resolve => setTimeout(resolve, 10))
+    // Reset mock before close to prevent unhandled rejection from fire-and-forget save
+    ;(quotaStorage.setItem as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
     db.close()
   })
 
@@ -651,8 +651,8 @@ describe('localStorage Persistence', () => {
     // Manual save should throw with quota error
     await expect(db.save()).rejects.toThrow(/quota/i)
 
-    // Don't close immediately to prevent any pending operations
-    await new Promise(resolve => setTimeout(resolve, 10))
+    // Reset mock before close to prevent unhandled rejection from fire-and-forget save
+    ;(quotaStorage.setItem as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
     db.close()
   })
 

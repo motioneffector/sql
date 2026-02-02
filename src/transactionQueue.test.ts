@@ -430,6 +430,8 @@ describe('Transaction Queue - Database Lifecycle', () => {
 
     db.close()
 
+    // Both transactions should reject when database is closed
+    await expect(slowTransaction).rejects.toThrow(/Database (is )?closed/)
     await expect(queuedTransaction).rejects.toThrow(/Database (is )?closed/)
   })
 
