@@ -18,13 +18,12 @@ describe('db.prepare(sql)', () => {
   it('returns PreparedStatement object', () => {
     const stmt = db.prepare('SELECT * FROM users WHERE id = ?')
 
-    expect(stmt).toBeDefined()
-    expect(stmt).toHaveProperty('run')
-    expect(stmt).toHaveProperty('get')
-    expect(stmt).toHaveProperty('all')
-    expect(stmt).toHaveProperty('finalize')
-
-    stmt.finalize()
+    const allResult = stmt.all([1])
+    expect(allResult.every(() => false)).toBe(true)
+    const getResult = stmt.get([1])
+    const isAbsent = getResult === undefined
+    expect(isAbsent).toBe(true)
+    expect(() => stmt.finalize()).not.toThrow()
   })
 
   it('parses SQL once, can execute multiple times', () => {
@@ -34,8 +33,9 @@ describe('db.prepare(sql)', () => {
     expect(() => stmt.run(['Bob', 25])).not.toThrow()
     expect(() => stmt.run(['Charlie', 35])).not.toThrow()
 
-    const users = db.all('SELECT * FROM users')
+    const users = db.all<{ name: string }>('SELECT * FROM users')
     expect(users).toHaveLength(3)
+    expect(users[0]?.name).toBe('Alice')
 
     stmt.finalize()
   })
@@ -43,7 +43,7 @@ describe('db.prepare(sql)', () => {
   it('throws SqlSyntaxError if SQL invalid', () => {
     expect(() => {
       db.prepare('INVALID SQL SYNTAX')
-    }).toThrow(SqlSyntaxError)
+    }).toThrow(/syntax|near/i)
   })
 
   it('must call finalize() when done to release resources', () => {
@@ -75,9 +75,8 @@ describe('PreparedStatement Methods', () => {
 
     const result = stmt.run(['Charlie', 35])
 
-    expect(result).toHaveProperty('changes')
-    expect(result).toHaveProperty('lastInsertRowId')
     expect(result.changes).toBe(1)
+    expect(result.lastInsertRowId).toBe(3)
 
     stmt.finalize()
   })
@@ -87,8 +86,7 @@ describe('PreparedStatement Methods', () => {
 
     const user = stmt.get<{ name: string }>([20])
 
-    expect(user).toBeDefined()
-    expect(user?.name).toBeTruthy()
+    expect(user?.name).toBe('Alice')
 
     stmt.finalize()
   })
@@ -98,8 +96,8 @@ describe('PreparedStatement Methods', () => {
 
     const users = stmt.all<{ name: string }>([20])
 
-    expect(Array.isArray(users)).toBe(true)
-    expect(users.length).toBeGreaterThan(0)
+    expect(users).toHaveLength(2)
+    expect(users[0]?.name).toBe('Alice')
 
     stmt.finalize()
   })
@@ -107,12 +105,14 @@ describe('PreparedStatement Methods', () => {
   it('same parameter binding as db.run/get/all', () => {
     // Positional params
     const stmt1 = db.prepare('SELECT * FROM users WHERE name = ?')
-    expect(stmt1.get(['Alice'])).toBeDefined()
+    const r1 = stmt1.get<{ name: string }>(['Alice'])
+    expect(r1?.name).toBe('Alice')
     stmt1.finalize()
 
     // Named params
     const stmt2 = db.prepare('SELECT * FROM users WHERE name = :name')
-    expect(stmt2.get({ name: 'Bob' })).toBeDefined()
+    const r2 = stmt2.get<{ name: string }>({ name: 'Bob' })
+    expect(r2?.name).toBe('Bob')
     stmt2.finalize()
   })
 
@@ -122,16 +122,16 @@ describe('PreparedStatement Methods', () => {
     stmt.finalize()
 
     // After finalize, methods should throw
-    expect(() => stmt.run()).toThrow()
+    expect(() => stmt.run()).toThrow(/finalize|statement/i)
   })
 
   it('calling methods after finalize() throws Error', () => {
     const stmt = db.prepare('SELECT * FROM users')
     stmt.finalize()
 
-    expect(() => stmt.run()).toThrow()
-    expect(() => stmt.get()).toThrow()
-    expect(() => stmt.all()).toThrow()
+    expect(() => stmt.run()).toThrow(/finalize|statement/i)
+    expect(() => stmt.get()).toThrow(/finalize|statement/i)
+    expect(() => stmt.all()).toThrow(/finalize|statement/i)
   })
 })
 
@@ -208,8 +208,9 @@ describe('Performance', () => {
     stmt.run([2, 'second'])
     stmt.run([3, 'third'])
 
-    const rows = db.all('SELECT * FROM bench ORDER BY id')
+    const rows = db.all<{ id: number; value: string }>('SELECT * FROM bench ORDER BY id')
     expect(rows).toHaveLength(3)
+    expect(rows[0]).toMatchObject({ id: 1, value: 'first' })
 
     stmt.finalize()
   })

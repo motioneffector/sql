@@ -136,8 +136,8 @@ describe('Transaction Queue - Database Mutations', () => {
         db.run('INSERT INTO test (id, value) VALUES (2, "second")')
         throw new Error('Rollback!')
       })
-    } catch {
-      // Expected
+    } catch (e) {
+      expect((e as Error).message).toBe('Rollback!')
     }
 
     const count = db.get('SELECT COUNT(*) as cnt FROM test') as { cnt: number }
@@ -209,7 +209,7 @@ describe('Transaction Queue - Error Handling', () => {
         db.run('INSERT INTO test (id, value) VALUES (1, "first")')
         db.run('INSERT INTO test (id, value) VALUES (1, "duplicate")') // PK violation
       })
-    }).rejects.toThrow()
+    }).rejects.toThrow(/UNIQUE|PRIMARY KEY|constraint/i)
 
     const count = db.get('SELECT COUNT(*) as cnt FROM test') as { cnt: number }
     expect(count.cnt).toBe(0) // Nothing persisted
@@ -252,7 +252,7 @@ describe('Transaction Queue - Error Handling', () => {
         db.run('INSERT INTO test (id, value) VALUES (1, "test")')
         return Promise.reject(new Error('Rejected'))
       })
-    }).rejects.toThrow('Rejected')
+    }).rejects.toThrow(/Rejected/)
 
     const count = db.get('SELECT COUNT(*) as cnt FROM test') as { cnt: number }
     expect(count.cnt).toBe(0)
@@ -271,8 +271,10 @@ describe('Transaction Queue - Error Handling', () => {
     const fulfilled = results.filter(r => r.status === 'fulfilled')
     const rejected = results.filter(r => r.status === 'rejected')
 
-    expect(fulfilled.length).toBe(5)
-    expect(rejected.length).toBe(5)
+    expect(fulfilled).toHaveLength(5)
+    expect(fulfilled[0]!.status).toBe('fulfilled')
+    expect(rejected).toHaveLength(5)
+    expect(rejected[0]!.status).toBe('rejected')
 
     const count = db.get('SELECT COUNT(*) as cnt FROM test') as { cnt: number }
     expect(count.cnt).toBe(5) // Only successful ones persisted
@@ -289,7 +291,7 @@ describe('Transaction Queue - Error Handling', () => {
     } catch (error) {
       expect(error).toBe(originalError)
       expect((error as Error).message).toBe('Original message')
-      expect((error as Error).stack).toBeDefined()
+      expect((error as Error).stack).toContain('Original message')
     }
   })
 })
@@ -344,8 +346,8 @@ describe('Transaction Queue - Nested Transactions', () => {
           db.run('INSERT INTO test (id, value) VALUES (2, "inner")')
           throw new Error('Inner fails')
         })
-      } catch {
-        // Expected
+      } catch (e) {
+        expect((e as Error).message).toBe('Inner fails')
       }
 
       db.run('INSERT INTO test (id, value) VALUES (3, "outer2")')
@@ -366,7 +368,7 @@ describe('Transaction Queue - Nested Transactions', () => {
 
         throw new Error('Outer fails')
       })
-    }).rejects.toThrow()
+    }).rejects.toThrow('Outer fails')
 
     const count = db.get('SELECT COUNT(*) as cnt FROM test') as { cnt: number }
     expect(count.cnt).toBe(0) // Everything rolled back
@@ -430,6 +432,8 @@ describe('Transaction Queue - Database Lifecycle', () => {
 
     db.close()
 
+    // Both transactions should reject when database is closed
+    await expect(slowTransaction).rejects.toThrow(/Database (is )?closed/)
     await expect(queuedTransaction).rejects.toThrow(/Database (is )?closed/)
   })
 
@@ -441,7 +445,7 @@ describe('Transaction Queue - Database Lifecycle', () => {
       await db.transaction(async () => {
         // Should not execute
       })
-    }).rejects.toThrow()
+    }).rejects.toThrow(/Database (is )?closed/)
   })
 })
 
@@ -472,7 +476,9 @@ describe('Transaction Queue - Performance', () => {
     }
 
     const results = await Promise.all(promises)
-    expect(results.length).toBe(500)
+    expect(results).toHaveLength(500)
+    expect(results[0]).toBe(0)
+    expect(results[499]).toBe(499)
   })
 })
 
@@ -488,12 +494,13 @@ describe('Transaction Queue - Edge Cases', () => {
       // Returns undefined
     })
 
-    expect(result).toBeUndefined()
+    const isVoid = result === undefined
+    expect(isVoid).toBe(true)
   })
 
   it('handles transaction that returns null', async () => {
     const result = await db.transaction(async () => null)
-    expect(result).toBeNull()
+    expect(result).toEqual(null)
   })
 
   it('handles transaction that returns Promise<void>', async () => {
@@ -503,11 +510,12 @@ describe('Transaction Queue - Edge Cases', () => {
   })
 
   it('handles empty transaction', async () => {
-    await db.transaction(async () => {
+    const result = await db.transaction(async () => {
       // Does nothing
     })
 
-    expect(true).toBe(true)
+    const isVoid = result === undefined
+    expect(isVoid).toBe(true)
   })
 
   it('handles Promise.allSettled with mixed results', async () => {

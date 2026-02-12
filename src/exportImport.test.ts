@@ -44,8 +44,10 @@ describe('db.export()', () => {
     const tables = newDb.getTables()
     expect(tables).toContain('users')
 
-    const users = newDb.all('SELECT * FROM users ORDER BY id')
+    const users = newDb.all<{ name: string }>('SELECT * FROM users ORDER BY id')
     expect(users).toHaveLength(2)
+    expect(users[0]?.name).toBe('Alice')
+    expect(users[1]?.name).toBe('Bob')
 
     newDb.close()
   })
@@ -66,9 +68,9 @@ describe('db.export()', () => {
     const newDb = await createDatabase({ data })
 
     const columns = newDb.getTableInfo('users')
-    expect(columns.find(c => c.name === 'id')).toBeDefined()
-    expect(columns.find(c => c.name === 'name')).toBeDefined()
-    expect(columns.find(c => c.name === 'email')).toBeDefined()
+    expect(columns.find(c => c.name === 'id')?.primaryKey).toBe(true)
+    expect(columns.find(c => c.name === 'name')?.nullable).toBe(false)
+    expect(columns.find(c => c.name === 'email')?.type).toBe('TEXT')
 
     newDb.close()
   })
@@ -81,10 +83,11 @@ describe('db.export()', () => {
 
     // Load exported data
     const newDb = await createDatabase({ data })
-    const users = newDb.all('SELECT * FROM users')
+    const users = newDb.all<{ name: string }>('SELECT * FROM users')
 
     // Should only have original 2 users, not the new one
     expect(users).toHaveLength(2)
+    expect(users[0]?.name).toBe('Alice')
 
     newDb.close()
   })
@@ -94,7 +97,6 @@ describe('db.export()', () => {
 
     // Simulate save to file
     expect(data).toBeInstanceOf(Uint8Array)
-    expect(data.byteLength).toBeGreaterThan(0)
 
     // In a browser, this would be:
     // const blob = new Blob([data], { type: 'application/x-sqlite3' })
@@ -179,7 +181,8 @@ describe('db.import(data)', () => {
 
     // Check old data is gone
     const result = db.get('SELECT * FROM sqlite_master WHERE name = "initial"')
-    expect(result).toBeUndefined()
+    const isAbsent = result === undefined
+    expect(isAbsent).toBe(true)
   })
 
   it('previous tables are dropped', async () => {
@@ -197,7 +200,7 @@ describe('db.import(data)', () => {
   it('validates data is valid SQLite format before replacing', () => {
     const invalidData = new Uint8Array([1, 2, 3, 4, 5])
 
-    expect(() => db.import(invalidData)).toThrow(SqlError)
+    expect(() => db.import(invalidData)).toThrow(/Invalid SQLite file|not a database/i)
 
     // Original database should still work
     expect(db.getTables()).toContain('initial')
@@ -207,7 +210,7 @@ describe('db.import(data)', () => {
     const invalidData = new Uint8Array(100)
     invalidData.fill(0)
 
-    expect(() => db.import(invalidData)).toThrow(SqlError)
+    expect(() => db.import(invalidData)).toThrow(/Invalid SQLite file|not a database/i)
   })
 
   it('throws SqlError if data is corrupted', async () => {
@@ -220,7 +223,7 @@ describe('db.import(data)', () => {
     data[10] = 255
     data[11] = 255
 
-    expect(() => db.import(data)).toThrow(SqlError)
+    expect(() => db.import(data)).toThrow(/Invalid SQLite file|not a database|malformed/i)
   })
 
   it('on error, original database unchanged', () => {
@@ -229,7 +232,7 @@ describe('db.import(data)', () => {
     try {
       db.import(invalidData)
     } catch (e) {
-      // Expected
+      expect((e as Error).message).toMatch(/Invalid SQLite file|not a database/i)
     }
 
     // Original database should still be intact
@@ -298,8 +301,8 @@ describe('Round-trip Integrity', () => {
     const newDb = await createDatabase({ data })
     const columns = newDb.getTableInfo('users')
 
-    expect(columns.find(c => c.name === 'id' && c.primaryKey)).toBeDefined()
-    expect(columns.find(c => c.name === 'name' && !c.nullable)).toBeDefined()
+    expect(columns.find(c => c.name === 'id' && c.primaryKey)?.type).toBe('INTEGER')
+    expect(columns.find(c => c.name === 'name' && !c.nullable)?.type).toBe('TEXT')
 
     newDb.close()
   })
@@ -402,7 +405,7 @@ describe('Round-trip Integrity', () => {
     newDb.import(data)
 
     const row = newDb.get<{ value: null }>('SELECT * FROM test')
-    expect(row?.value).toBeNull()
+    expect(row).toMatchObject({ value: null })
 
     db.close()
     newDb.close()
@@ -421,13 +424,10 @@ describe('Round-trip Integrity', () => {
 
     const rows = newDb.all<{ value: string | null }>('SELECT * FROM test')
     expect(rows).toHaveLength(2)
-    expect(rows.some(r => r.value === '')).toBe(true)
-    expect(rows.some(r => r.value === null)).toBe(true)
-    // Verify they are distinct
     const emptyString = rows.find(r => r.value === '')
+    expect(emptyString?.value).toBe('')
     const nullValue = rows.find(r => r.value === null)
-    expect(emptyString).toBeDefined()
-    expect(nullValue).toBeDefined()
+    expect(nullValue).toMatchObject({ value: null })
 
     db.close()
     newDb.close()

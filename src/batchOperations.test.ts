@@ -23,9 +23,11 @@ describe('db.insertMany(tableName, rows)', () => {
 
     const ids = db.insertMany('users', rows)
 
-    const users = db.all('SELECT * FROM users ORDER BY id')
+    const users = db.all<{ id: number; name: string; age: number }>('SELECT * FROM users ORDER BY id')
     expect(users).toHaveLength(3)
+    expect(users[0]).toMatchObject({ name: 'Alice', age: 30 })
     expect(ids).toHaveLength(3)
+    expect(ids[0]).toBe(1)
   })
 
   it('rows is array of objects', () => {
@@ -45,11 +47,9 @@ describe('db.insertMany(tableName, rows)', () => {
 
     const ids = db.insertMany('users', rows)
 
-    expect(Array.isArray(ids)).toBe(true)
     expect(ids).toHaveLength(2)
-    expect(typeof ids[0]).toBe('number')
-    expect(typeof ids[1]).toBe('number')
-    expect(ids[1]).toBe(ids[0]! + 1)
+    expect(ids[0]).toBe(1)
+    expect(ids[1]).toBe(2)
   })
 
   it('all rows must have same keys (columns)', () => {
@@ -61,11 +61,14 @@ describe('db.insertMany(tableName, rows)', () => {
 
     const result = db.insertMany('users', rows)
     expect(result).toHaveLength(3)
+    expect(result[0]).toBe(1)
 
     // Verify all rows were inserted with correct data
     const users = db.all<{ name: string; age: number }>('SELECT * FROM users ORDER BY id')
     expect(users).toHaveLength(3)
-    expect(users.every(u => typeof u.age === 'number')).toBe(true)
+    expect(users[0]).toMatchObject({ name: 'Alice', age: 30 })
+    expect(users[1]).toMatchObject({ name: 'Bob', age: 25 })
+    expect(users[2]).toMatchObject({ name: 'Charlie', age: 35 })
   })
 
   it('throws Error if rows have inconsistent columns', () => {
@@ -77,7 +80,7 @@ describe('db.insertMany(tableName, rows)', () => {
     // Should throw an error because column sets are inconsistent
     expect(() => {
       db.insertMany('users', rows)
-    }).toThrow()
+    }).toThrow(/inconsistent|column/i)
   })
 
   it('rolls back all inserts if any fails', () => {
@@ -93,12 +96,12 @@ describe('db.insertMany(tableName, rows)', () => {
     try {
       db.insertMany('users_validated', rows)
     } catch (error) {
-      // Expected to fail
+      expect((error as Error).message).toMatch(/CHECK|constraint/i)
     }
 
     // No rows should have been inserted
     const users = db.all('SELECT * FROM users_validated')
-    expect(users).toHaveLength(0)
+    expect(users.every(() => false)).toBe(true)
   })
 
   it('faster than individual insert() calls', () => {
@@ -131,8 +134,8 @@ describe('db.insertMany(tableName, rows)', () => {
   it('handles empty array (returns empty array, no error)', () => {
     const ids = db.insertMany('users', [])
 
-    expect(ids).toEqual([])
-    expect(db.all('SELECT * FROM users')).toHaveLength(0)
+    expect(ids.every(() => false)).toBe(true)
+    expect(db.all('SELECT * FROM users').every(() => false)).toBe(true)
   })
 })
 

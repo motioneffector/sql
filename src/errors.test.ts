@@ -49,8 +49,7 @@ describe('SqlError Properties', () => {
       db.run("INSERT INTO users (id, email) VALUES (1, 'other@example.com')")
       expect.fail('Should have thrown')
     } catch (error) {
-      expect((error as SqlError).code).toBeDefined()
-      expect(typeof (error as SqlError).code).toBe('string')
+      expect((error as SqlError).code).toMatch(/CONSTRAINT/i)
     }
   })
 
@@ -71,8 +70,7 @@ describe('SqlError Properties', () => {
       expect.fail('Should have thrown')
     } catch (error) {
       const sqlError = error as SqlError
-      expect(sqlError.params).toBeDefined()
-      expect(Array.isArray(sqlError.params)).toBe(true)
+      expect(sqlError.params).toEqual([1])
     }
   })
 
@@ -81,9 +79,7 @@ describe('SqlError Properties', () => {
       db.run('INSERT INTO users (id) VALUES (1)')
       expect.fail('Should have thrown')
     } catch (error) {
-      expect((error as SqlError).message).toBeDefined()
-      expect(typeof (error as SqlError).message).toBe('string')
-      expect((error as SqlError).message.length).toBeGreaterThan(0)
+      expect((error as SqlError).message).toMatch(/NOT NULL|constraint/i)
     }
   })
 
@@ -92,8 +88,7 @@ describe('SqlError Properties', () => {
       db.run('INVALID SQL')
       expect.fail('Should have thrown')
     } catch (error) {
-      expect((error as SqlError).stack).toBeDefined()
-      expect(typeof (error as SqlError).stack).toBe('string')
+      expect((error as SqlError).stack).toMatch(/SqlError|at/)
     }
   })
 })
@@ -383,7 +378,7 @@ describe('MigrationError', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(MigrationError)
       // The original error should be SqlError or one of its subclasses
-      expect((error as MigrationError).message).toBeDefined()
+      expect((error as MigrationError).message).toMatch(/nonexistent|no such table/i)
     }
   })
 })

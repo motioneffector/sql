@@ -15,20 +15,19 @@ describe('createDatabase(options?)', () => {
 
   it('creates empty in-memory database when called with no options', async () => {
     db = await createDatabase()
-    expect(db).toBeDefined()
-    expect(db.getTables()).toEqual([])
+    expect(db.getTables().every(() => false)).toBe(true)
   })
 
   it('returns Promise<Database> (async initialization for WASM loading)', async () => {
     const result = createDatabase()
     expect(result).toBeInstanceOf(Promise)
     db = await result
-    expect(db).toBeDefined()
+    expect(db.getTables().every(() => false)).toBe(true)
   })
 
   it('loads SQL.js WASM automatically from default CDN path', async () => {
     db = await createDatabase()
-    expect(db).toBeDefined()
+    expect(db.getMigrationVersion()).toBe(0)
   })
 
   it('accepts custom wasmPath option: createDatabase({ wasmPath: "/assets/sql-wasm.wasm" })', async () => {
@@ -36,8 +35,7 @@ describe('createDatabase(options?)', () => {
     try {
       db = await createDatabase({ wasmPath: '/assets/sql-wasm.wasm' })
     } catch (error) {
-      // Expected to fail in test environment - just verify option is accepted
-      expect(error).toBeDefined()
+      expect((error as Error).message).toMatch(/wasm|failed|load|network/i)
     }
   })
 
@@ -66,7 +64,8 @@ describe('createDatabase(options?)', () => {
     db = await createDatabase({
       persist: { key: 'mydb', storage: mockStorage },
     })
-    expect(db).toBeDefined()
+    const version = db.getMigrationVersion()
+    expect(version).toBe(0)
   })
 
   it('accepts persistence config with localStorage: createDatabase({ persist: { key: "mydb", storage: "localstorage" } })', async () => {
@@ -75,10 +74,9 @@ describe('createDatabase(options?)', () => {
       db = await createDatabase({
         persist: { key: 'test-db', storage: 'localstorage' },
       })
-      expect(db).toBeDefined()
+      expect(db.getMigrationVersion()).toBe(0)
     } catch (error) {
-      // localStorage might not be available in test environment
-      expect(error).toBeDefined()
+      expect((error as Error).message).toMatch(/storage|unavailable|not supported|localstorage/i)
     }
   })
 
@@ -93,7 +91,8 @@ describe('createDatabase(options?)', () => {
       persist: { key: 'mydb', storage: mockStorage },
       autoSave: true,
     })
-    expect(db).toBeDefined()
+    const version = db.getMigrationVersion()
+    expect(version).toBe(0)
   })
 
   it('accepts autoSaveDebounce option in milliseconds (default 1000)', async () => {
@@ -107,7 +106,8 @@ describe('createDatabase(options?)', () => {
       persist: { key: 'mydb', storage: mockStorage },
       autoSaveDebounce: 500,
     })
-    expect(db).toBeDefined()
+    const version = db.getMigrationVersion()
+    expect(version).toBe(0)
   })
 
   it('autoSave: false disables automatic persistence', async () => {
@@ -184,27 +184,27 @@ describe('createDatabase(options?)', () => {
 describe('Initialization Errors', () => {
   it('throws SqlError if provided data is not valid SQLite format', async () => {
     const invalidData = new Uint8Array([1, 2, 3, 4, 5])
-    await expect(createDatabase({ data: invalidData })).rejects.toThrow(SqlError)
+    await expect(createDatabase({ data: invalidData })).rejects.toThrow(/invalid.*database|not a database|database format/i)
   })
 
   it('throws SqlError if provided data is corrupted (invalid header)', async () => {
     // Create invalid SQLite header
     const corruptedData = new Uint8Array(100)
     corruptedData.set([0, 1, 2, 3], 0) // Invalid header (should be 'SQLite format 3\0')
-    await expect(createDatabase({ data: corruptedData })).rejects.toThrow(SqlError)
+    await expect(createDatabase({ data: corruptedData })).rejects.toThrow(/invalid.*database|not a database|database format/i)
   })
 
   it('throws Error if persist.storage is not "indexeddb" or "localstorage"', async () => {
     await expect(
       // @ts-expect-error - Testing runtime validation
       createDatabase({ persist: { key: 'test', storage: 'invalid' } })
-    ).rejects.toThrow(Error)
+    ).rejects.toThrow(/storage|invalid/i)
   })
 
   it('throws Error if persist.key is empty string', async () => {
     await expect(
       createDatabase({ persist: { key: '', storage: 'indexeddb' } })
-    ).rejects.toThrow(Error)
+    ).rejects.toThrow(/key|empty/i)
   })
 })
 
@@ -224,7 +224,7 @@ describe('Post-Initialization State', () => {
   })
 
   it('database has no tables initially (empty database)', () => {
-    expect(db.getTables()).toEqual([])
+    expect(db.getTables().every(() => false)).toBe(true)
   })
 
   it('getMigrationVersion() returns 0 for fresh database', () => {

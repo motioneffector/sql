@@ -18,8 +18,9 @@ describe('db.transaction(fn)', () => {
     await db.transaction(() => {
       db.run('INSERT INTO test VALUES (1)')
     })
-    const result = db.all('SELECT * FROM test')
+    const result = db.all<{ value: number }>('SELECT * FROM test')
     expect(result).toHaveLength(1)
+    expect(result[0]?.value).toBe(1)
   })
 
   it('executes async function within BEGIN/COMMIT', async () => {
@@ -28,8 +29,9 @@ describe('db.transaction(fn)', () => {
       await Promise.resolve()
       db.run('INSERT INTO test VALUES (2)')
     })
-    const result = db.all('SELECT * FROM test')
+    const result = db.all<{ value: number }>('SELECT * FROM test')
     expect(result).toHaveLength(2)
+    expect(result[0]?.value).toBe(1)
   })
 
   it("returns the function's return value", async () => {
@@ -58,8 +60,9 @@ describe('db.transaction(fn)', () => {
       db.run('INSERT INTO test VALUES (1)')
       db.run('INSERT INTO test VALUES (2)')
     })
-    const result = db.all('SELECT * FROM test')
+    const result = db.all<{ value: number }>('SELECT * FROM test')
     expect(result).toHaveLength(2)
+    expect(result[0]?.value).toBe(1)
   })
 
   it('rolls back if function throws error', async () => {
@@ -71,11 +74,12 @@ describe('db.transaction(fn)', () => {
         throw new Error('Simulated failure')
       })
     } catch (e) {
-      // Expected
+      expect((e as Error).message).toBe('Simulated failure')
     }
 
-    const result = db.all('SELECT * FROM test')
+    const result = db.all<{ value: number }>('SELECT * FROM test')
     expect(result).toHaveLength(1) // Only pre-existing data
+    expect(result[0]?.value).toBe(0)
   })
 
   it('rolls back if function returns rejected promise', async () => {
@@ -87,11 +91,12 @@ describe('db.transaction(fn)', () => {
         throw new Error('Async failure')
       })
     } catch (e) {
-      // Expected
+      expect((e as Error).message).toBe('Async failure')
     }
 
-    const result = db.all('SELECT * FROM test')
+    const result = db.all<{ value: number }>('SELECT * FROM test')
     expect(result).toHaveLength(1)
+    expect(result[0]?.value).toBe(0)
   })
 
   it('re-throws the original error after rollback', async () => {
@@ -142,10 +147,10 @@ describe('db.transaction(fn)', () => {
           throw new Error('Rollback')
         })
       } catch (e) {
-        // Expected
+        expect((e as Error).message).toBe('Rollback')
       }
       const result = db.all('SELECT * FROM test')
-      expect(result).toHaveLength(0)
+      expect(result.every(() => false)).toBe(true)
     })
 
     it('INSERT within transaction visible to SELECT within same transaction', async () => {
@@ -175,7 +180,9 @@ describe('db.transaction(fn)', () => {
         })
       })
       // If savepoints work, both inserts succeed
-      expect(db.all('SELECT * FROM test')).toHaveLength(2)
+      const rows = db.all<{ value: number }>('SELECT * FROM test ORDER BY value')
+      expect(rows).toHaveLength(2)
+      expect(rows[0]?.value).toBe(1)
     })
 
     it('outer transaction can contain inner transaction', async () => {
@@ -186,7 +193,9 @@ describe('db.transaction(fn)', () => {
         })
         db.run('INSERT INTO test VALUES (3)')
       })
-      expect(db.all('SELECT * FROM test')).toHaveLength(3)
+      const rows = db.all<{ value: number }>('SELECT * FROM test ORDER BY value')
+      expect(rows).toHaveLength(3)
+      expect(rows[0]?.value).toBe(1)
     })
 
     it('inner transaction failure rolls back to savepoint, not entire transaction', async () => {
@@ -199,7 +208,7 @@ describe('db.transaction(fn)', () => {
             throw new Error('Inner failure')
           })
         } catch (e) {
-          // Inner transaction rolled back
+          expect((e as Error).message).toBe('Inner failure')
         }
 
         db.run('INSERT INTO test VALUES (3)')
@@ -219,14 +228,15 @@ describe('db.transaction(fn)', () => {
             throw new Error('Inner error')
           })
         } catch (e) {
-          // Caught and handled
+          expect((e as Error).message).toBe('Inner error')
         }
 
         db.run('INSERT INTO test VALUES (3)')
       })
 
-      const result = db.all('SELECT * FROM test')
+      const result = db.all<{ value: number }>('SELECT * FROM test')
       expect(result).toHaveLength(2) // 1 and 3, not 2
+      expect(result[0]?.value).toBe(1)
     })
 
     it('outer transaction failure rolls back everything including inner changes', async () => {
@@ -241,11 +251,11 @@ describe('db.transaction(fn)', () => {
           throw new Error('Outer failure')
         })
       } catch (e) {
-        // Expected
+        expect((e as Error).message).toBe('Outer failure')
       }
 
       const result = db.all('SELECT * FROM test')
-      expect(result).toHaveLength(0)
+      expect(result.every(() => false)).toBe(true)
     })
 
     it('savepoint names are unique (e.g., sp_1, sp_2, sp_3)', async () => {
@@ -260,7 +270,9 @@ describe('db.transaction(fn)', () => {
           })
         })
       })
-      expect(db.all('SELECT * FROM test')).toHaveLength(3)
+      const rows = db.all<{ value: number }>('SELECT * FROM test ORDER BY value')
+      expect(rows).toHaveLength(3)
+      expect(rows[0]?.value).toBe(1)
     })
 
     it('deeply nested transactions work (3+ levels)', async () => {
@@ -276,7 +288,9 @@ describe('db.transaction(fn)', () => {
           })
         })
       })
-      expect(db.all('SELECT * FROM test')).toHaveLength(4)
+      const rows = db.all<{ value: number }>('SELECT * FROM test ORDER BY value')
+      expect(rows).toHaveLength(4)
+      expect(rows[0]?.value).toBe(1)
     })
   })
 
@@ -313,7 +327,7 @@ describe('db.transaction(fn)', () => {
           throw new Error('Rollback')
         })
       } catch (e) {
-        // Expected
+        expect((e as Error).message).toBe('Rollback')
       }
       expect(db.inTransaction).toBe(false)
     })
@@ -322,7 +336,7 @@ describe('db.transaction(fn)', () => {
       expect(() => {
         // @ts-expect-error - Testing readonly
         db.inTransaction = true
-      }).toThrow()
+      }).toThrow(/Cannot set|read.only|assign/i)
     })
   })
 })

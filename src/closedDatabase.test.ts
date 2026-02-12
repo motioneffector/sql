@@ -90,20 +90,19 @@ describe('Closed Database Behavior', () => {
 
   it('error is thrown synchronously, not via rejection', () => {
     // Synchronous methods should throw immediately
-    expect(() => db.run('SELECT 1')).toThrow()
-    expect(() => db.get('SELECT 1')).toThrow()
-    expect(() => db.all('SELECT 1')).toThrow()
-    expect(() => db.exec('SELECT 1')).toThrow()
-    expect(() => db.export()).toThrow()
-    expect(() => db.table('test')).toThrow()
+    expect(() => db.run('SELECT 1')).toThrow('Database is closed')
+    expect(() => db.get('SELECT 1')).toThrow('Database is closed')
+    expect(() => db.all('SELECT 1')).toThrow('Database is closed')
+    expect(() => db.exec('SELECT 1')).toThrow('Database is closed')
+    expect(() => db.export()).toThrow('Database is closed')
+    expect(() => db.table('test')).toThrow('Database is closed')
 
     // Not wrapped in a promise rejection
     try {
       db.run('SELECT 1')
       expect.fail('Should have thrown')
     } catch (error) {
-      expect(error).toBeInstanceOf(Error)
-      expect((error as Error).message).toContain('Database is closed')
+      expect((error as Error).message).toBe('Database is closed')
     }
   })
 })

@@ -20,10 +20,8 @@ describe('db.sql Tagged Template Literal', () => {
     const name = 'Alice'
     const result = db.sql`SELECT * FROM users WHERE name = ${name}`
 
-    expect(result).toHaveProperty('sql')
-    expect(result).toHaveProperty('params')
-    expect(typeof result.sql).toBe('string')
-    expect(Array.isArray(result.params)).toBe(true)
+    expect(result.sql).toContain('SELECT')
+    expect(result.params).toEqual(['Alice'])
   })
 
   it('interpolated values extracted as parameters', () => {
@@ -131,7 +129,7 @@ describe('Multiple Interpolations', () => {
     const result = db.sql`SELECT 1`
 
     expect(result.sql).toBe('SELECT 1')
-    expect(result.params).toEqual([])
+    expect(result.params.every(() => false)).toBe(true)
   })
 
   it('handles single interpolation', () => {

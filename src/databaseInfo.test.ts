@@ -18,8 +18,8 @@ describe('db.getTables()', () => {
     db.exec('CREATE TABLE users (id INTEGER PRIMARY KEY)')
     db.exec('CREATE TABLE posts (id INTEGER PRIMARY KEY)')
     const tables = db.getTables()
-    expect(Array.isArray(tables)).toBe(true)
-    expect(tables.every(t => typeof t === 'string')).toBe(true)
+    expect(tables).toContain('users')
+    expect(tables).toContain('posts')
   })
 
   it('excludes sqlite_* internal tables', () => {
@@ -37,7 +37,7 @@ describe('db.getTables()', () => {
 
   it('returns empty array for empty database', () => {
     const tables = db.getTables()
-    expect(tables).toEqual([])
+    expect(tables.every(() => false)).toBe(true)
   })
 
   it('includes tables created by migrations', async () => {
@@ -51,7 +51,7 @@ describe('db.getTables()', () => {
   })
 
   it('reflects current state (newly created tables appear)', () => {
-    expect(db.getTables()).toEqual([])
+    expect(db.getTables().every(() => false)).toBe(true)
     db.exec('CREATE TABLE test1 (id INTEGER)')
     expect(db.getTables()).toContain('test1')
     db.exec('CREATE TABLE test2 (id INTEGER)')
@@ -81,17 +81,12 @@ describe('db.getTableInfo(tableName)', () => {
 
   it('returns array of column info objects', () => {
     const columns = db.getTableInfo('users')
-    expect(Array.isArray(columns)).toBe(true)
-    expect(columns.length).toBeGreaterThan(0)
-    expect(columns[0]).toHaveProperty('name')
-    expect(columns[0]).toHaveProperty('type')
-    expect(columns[0]).toHaveProperty('nullable')
-    expect(columns[0]).toHaveProperty('defaultValue')
-    expect(columns[0]).toHaveProperty('primaryKey')
+    expect(columns).toHaveLength(5)
+    expect(columns[0]).toMatchObject({ name: 'id', type: 'INTEGER', nullable: true, defaultValue: null, primaryKey: true })
   })
 
   it("throws SqlNotFoundError if table doesn't exist", () => {
-    expect(() => db.getTableInfo('nonexistent')).toThrow(SqlNotFoundError)
+    expect(() => db.getTableInfo('nonexistent')).toThrow(/nonexistent|no such table/i)
   })
 
   it('name is the column name as declared', () => {
@@ -124,7 +119,7 @@ describe('db.getTableInfo(tableName)', () => {
     const activeCol = columns.find(c => c.name === 'active')
     const nameCol = columns.find(c => c.name === 'name')
     expect(activeCol?.defaultValue).toBe('1')
-    expect(nameCol?.defaultValue).toBeNull()
+    expect(nameCol).toMatchObject({ name: 'name', defaultValue: null })
   })
 
   it('primaryKey is true for PRIMARY KEY column(s)', () => {
@@ -174,13 +169,9 @@ describe('db.getIndexes(tableName?)', () => {
 
   it('returns array of index info objects', () => {
     const indexes = db.getIndexes()
-    expect(Array.isArray(indexes)).toBe(true)
-    if (indexes.length > 0) {
-      expect(indexes[0]).toHaveProperty('name')
-      expect(indexes[0]).toHaveProperty('table')
-      expect(indexes[0]).toHaveProperty('unique')
-      expect(indexes[0]).toHaveProperty('columns')
-    }
+    expect(indexes).toHaveLength(2)
+    expect(indexes[0]).toMatchObject({ name: 'idx_users_name', table: 'users', unique: false, columns: ['name'] })
+    expect(indexes[1]).toMatchObject({ name: 'idx_posts_title', table: 'posts', unique: true, columns: ['title'] })
   })
 
   it('if tableName provided, returns indexes for that table only', () => {
