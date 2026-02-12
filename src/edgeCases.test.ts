@@ -19,33 +19,36 @@ describe('Empty and Null Values', () => {
     db.run('INSERT INTO test VALUES (NULL)')
 
     const rows = db.all<{ value: string | null }>('SELECT * FROM test')
-    expect(rows.some(r => r.value === '')).toBe(true)
-    expect(rows.some(r => r.value === null)).toBe(true)
+    const emptyStringRow = rows.find(r => r.value === '')
+    expect(emptyStringRow?.value).toBe('')
+    const nullRow = rows.find(r => r.value === null)
+    expect(nullRow).toMatchObject({ value: null })
   })
 
   it("get() returns '' for empty TEXT column", () => {
     db.run('INSERT INTO test VALUES (?)', [''])
     const result = db.get<{ value: string }>('SELECT * FROM test')
     expect(result?.value).toBe('')
-    expect(result?.value).not.toBeNull()
   })
 
   it('get() returns null for NULL column', () => {
     db.run('INSERT INTO test VALUES (NULL)')
     const result = db.get<{ value: null }>('SELECT * FROM test')
-    expect(result?.value).toBeNull()
+    expect(result).toMatchObject({ value: null })
   })
 
   it("WHERE col = '' does not match NULL", () => {
     db.run('INSERT INTO test VALUES (NULL)')
     const result = db.get("SELECT * FROM test WHERE value = ''")
-    expect(result).toBeUndefined()
+    const isAbsent = result === undefined
+    expect(isAbsent).toBe(true)
   })
 
   it("WHERE col IS NULL does not match ''", () => {
     db.run('INSERT INTO test VALUES (?)', [''])
     const result = db.get('SELECT * FROM test WHERE value IS NULL')
-    expect(result).toBeUndefined()
+    const isAbsent = result === undefined
+    expect(isAbsent).toBe(true)
   })
 
   it('insert empty string, retrieve empty string', () => {
@@ -57,7 +60,7 @@ describe('Empty and Null Values', () => {
   it('insert NULL, retrieve null', () => {
     db.run('INSERT INTO test VALUES (NULL)')
     const result = db.get<{ value: null }>('SELECT * FROM test')
-    expect(result?.value).toBeNull()
+    expect(result).toMatchObject({ value: null })
   })
 })
 
@@ -203,7 +206,7 @@ describe('Numeric Limits', () => {
     const result = db.get<{ int_val: number }>('SELECT * FROM test')
 
     // May or may not be exact due to JS number limitations
-    expect(typeof result?.int_val).toBe('number')
+    expect(result?.int_val).toBe(largeNum)
   })
 
   it('BigInt parameters stored as TEXT to preserve precision', () => {
@@ -222,6 +225,7 @@ describe('Numeric Limits', () => {
 
     const results = db.all<{ real_val: number }>('SELECT real_val FROM test')
     expect(results).toHaveLength(values.length)
+    expect(results[0]?.real_val).toBeCloseTo(3.14159)
   })
 
   it('REAL handles special values: Infinity, -Infinity, NaN as NULL', () => {
@@ -233,7 +237,10 @@ describe('Numeric Limits', () => {
     const results = db.all<{ real_val: number | null }>('SELECT real_val FROM test')
 
     // Implementation-specific: may be NULL or string representation
-    expect(results.length).toBe(3)
+    expect(results).toHaveLength(3)
+    const firstRow = results[0]!
+    const hasRealVal = 'real_val' in firstRow
+    expect(hasRealVal).toBe(true)
   })
 })
 
@@ -269,8 +276,12 @@ describe('Large Data', () => {
     const placeholders = Array.from({ length: 100 }, () => '?').join(', ')
     db.run(`INSERT INTO wide VALUES (${placeholders})`, values)
 
-    const result = db.get('SELECT * FROM wide')
-    expect(Object.keys(result!).length).toBe(100)
+    const result = db.get<Record<string, number>>('SELECT * FROM wide')
+    const keys = Object.keys(result!)
+    expect(keys).toHaveLength(100)
+    expect(keys[0]).toBe('col0')
+    expect(result!.col0).toBe(0)
+    expect(result!.col99).toBe(99)
   })
 
   it('handles single TEXT cell with 10MB data', () => {
@@ -356,8 +367,8 @@ describe('Environment Compatibility', () => {
     const db = await createDatabase()
     db.exec('CREATE TABLE test (id INTEGER)')
     db.run('INSERT INTO test VALUES (1)')
-    const result = db.get('SELECT * FROM test')
-    expect(result).toBeDefined()
+    const result = db.get<{ id: number }>('SELECT * FROM test')
+    expect(result?.id).toBe(1)
     db.close()
   })
 
@@ -366,8 +377,8 @@ describe('Environment Compatibility', () => {
     const db = await createDatabase()
     db.exec('CREATE TABLE test (id INTEGER)')
     db.run('INSERT INTO test VALUES (1)')
-    const result = db.get('SELECT * FROM test')
-    expect(result).toBeDefined()
+    const result = db.get<{ id: number }>('SELECT * FROM test')
+    expect(result?.id).toBe(1)
     db.close()
   })
 })

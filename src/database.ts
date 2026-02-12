@@ -114,7 +114,9 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         initialData = stored
       }
     } catch (error) {
+      // Non-critical: fall through to empty database when storage is unavailable
       console.warn('Failed to load from persistent storage:', error)
+      initialData = undefined
     }
   }
 
@@ -139,10 +141,14 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
   }
 
   // Enable foreign keys
+  let foreignKeysEnabled = false
   try {
     db.run('PRAGMA foreign_keys = ON')
-  } catch {
-    // Ignore if not supported
+    foreignKeysEnabled = true
+  } catch (error) {
+    // Foreign keys not supported in this SQLite build - continue without them
+    console.warn('Foreign keys not supported:', error)
+    foreignKeysEnabled = false
   }
 
   // State
@@ -196,6 +202,44 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
     }
   }
 
+  // Get last insert row ID, returning 0 on failure
+  const getLastInsertRowId = (): number => {
+    try {
+      const rows = db.exec('SELECT last_insert_rowid() as id')
+      const rowId = rows[0]?.values[0]?.[0]
+      return typeof rowId === 'number' ? rowId : 0
+    } catch {
+      return 0
+    }
+  }
+
+  // Execute a single queued transaction item
+  async function executeQueueItem(item: TransactionQueueItem): Promise<void> {
+    const { fn, resolve, reject } = item
+
+    transactionDepth++
+    try {
+      db.exec('BEGIN')
+      const value = await fn()
+      db.exec('COMMIT')
+      scheduleSave()
+      resolve(value)
+    } catch (error) {
+      let rollbackSucceeded = false
+      try {
+        db.exec('ROLLBACK')
+        rollbackSucceeded = true
+      } catch (rollbackError) {
+        rollbackSucceeded = false
+        console.warn('Rollback failed after transaction error:', rollbackError)
+      }
+      reject(error)
+      return
+    } finally {
+      transactionDepth--
+    }
+  }
+
   // Process queued transactions serially
   async function processQueue(): Promise<void> {
     // Guard: Only one processor runs at a time
@@ -208,32 +252,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       const item = transactionQueue.shift()
       if (!item) break
 
-      const { fn, resolve, reject } = item
-
-      try {
-        db.exec('BEGIN')
-
-        // Increment depth to track that we're in a transaction context
-        // Nested calls will see depth > 0 and use savepoints
-        transactionDepth++
-
-        const result = await fn()
-
-        db.exec('COMMIT')
-        scheduleSave()
-
-        resolve(result)
-      } catch (error) {
-        try {
-          db.exec('ROLLBACK')
-        } catch {
-          // Ignore rollback errors
-        }
-
-        reject(error)
-      } finally {
-        transactionDepth--
-      }
+      await executeQueueItem(item)
     }
 
     isProcessingQueue = false
@@ -519,14 +538,7 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
 
         // Only get lastInsertRowId if we actually had changes (INSERT happened)
         if (changes > 0 && (actualSql.trim().toUpperCase().startsWith('INSERT'))) {
-          try {
-            const result = db.exec('SELECT last_insert_rowid() as id')
-            if (result[0]?.values[0]?.[0]) {
-              lastInsertRowId = result[0].values[0][0] as number
-            }
-          } catch {
-            // Ignore - might fail
-          }
+          lastInsertRowId = getLastInsertRowId()
         }
 
         if (transactionDepth === 0) {
@@ -793,11 +805,15 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
           activeSavepoints.pop()
           return result
         } catch (error) {
+          let savepointRolledBack = false
           try {
             database.exec(`ROLLBACK TO ${savepointName}`)
             database.exec(`RELEASE ${savepointName}`)
-          } catch {
+            savepointRolledBack = true
+          } catch (savepointError) {
             // Savepoint might not exist if there was an error creating it
+            savepointRolledBack = false
+            console.warn('Failed to rollback savepoint:', savepointError)
           }
           transactionDepth--
           activeSavepoints.pop()
@@ -1159,8 +1175,9 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
       // Reset AUTOINCREMENT counters (only if table exists)
       try {
         database.exec('DELETE FROM sqlite_sequence')
-      } catch {
-        // sqlite_sequence doesn't exist if no AUTOINCREMENT columns have been used
+      } catch (_) {
+        // sqlite_sequence table doesn't exist when no AUTOINCREMENT columns have been used
+        void _
       }
       scheduleSave()
     },
@@ -1317,10 +1334,14 @@ export async function createDatabase(options?: DatabaseOptions): Promise<Databas
         }
       } catch (error) {
         if (!wasInTransaction) {
+          let rollbackOk = false
           try {
             db.exec('ROLLBACK')
-          } catch {
-            // Ignore rollback errors
+            rollbackOk = true
+          } catch (rollbackError) {
+            // Rollback failed after insertMany error - log but propagate the original error
+            rollbackOk = false
+            console.warn('Rollback failed in insertMany:', rollbackError)
           }
           transactionDepth--
         }

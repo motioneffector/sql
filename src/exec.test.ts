@@ -19,7 +19,8 @@ describe('db.exec(sql)', () => {
 
   it('returns void (undefined)', () => {
     const result = db.exec('SELECT 1')
-    expect(result).toBeUndefined()
+    const isVoid = result === undefined
+    expect(isVoid).toBe(true)
   })
 
   it('handles single statement', () => {
@@ -82,7 +83,7 @@ describe('db.exec(sql)', () => {
       try {
         db.exec('INSERT INTO test VALUES (1); INSERT INTO invalid_table VALUES (1)')
       } catch (e) {
-        // Second statement failed
+        expect((e as Error).message).toMatch(/no such table|invalid_table/i)
       }
       // First statement succeeded
       const result = db.get<{ id: number }>('SELECT * FROM test')

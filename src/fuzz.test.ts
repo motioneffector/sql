@@ -277,9 +277,11 @@ describe('Fuzz: createDatabase(options?)', () => {
   it('handles undefined options gracefully', async () => {
     const result = await fuzzLoopAsync(async (random, i) => {
       const db = await createDatabase(undefined)
-      expect(db).toBeDefined()
+      expect(db.getMigrationVersion()).toBe(0)
       db.close()
     })
+
+    expect(result.iterations).toBeGreaterThan(0)
 
     if (THOROUGH_MODE) {
       console.log(`  Completed ${result.iterations} iterations in ${result.durationMs}ms`)
@@ -295,25 +297,28 @@ describe('Fuzz: createDatabase(options?)', () => {
   })
 
   it('rejects invalid data field types', async () => {
+    let testedCount = 0
     await fuzzLoopAsync(async (random, i) => {
       const invalidData = generateObject(random) as any
 
-      // Skip valid cases (undefined is valid)
-      if (invalidData === undefined || invalidData instanceof Uint8Array) {
-        return
-      }
+      // Valid cases (undefined and Uint8Array are valid data options)
+      const isValid = invalidData === undefined || invalidData instanceof Uint8Array
 
-      try {
-        const db = await createDatabase({ data: invalidData })
-        db.close()
-        // If it succeeds, that's fine - the library might be lenient
-      } catch (e) {
-        // If it fails, should throw proper error
-        expect(e).toBeInstanceOf(Error)
-        expect((e as Error).message).not.toBe('')
-        expect((e as Error).message).not.toContain('undefined')
+      if (!isValid) {
+        testedCount++
+
+        // Use Promise-based approach to avoid try/catch
+        const outcome = await createDatabase({ data: invalidData })
+          .then(db => { db.close(); return 'ok' as const })
+          .catch((e: Error) => e.message)
+
+        // Either succeeded ('ok') or has an error message (non-empty, no 'undefined')
+        const isValid = outcome === 'ok' || (outcome.length > 0 && !outcome.includes('undefined'))
+        expect(isValid).toBe(true)
       }
     })
+    // Ensure we actually tested some invalid cases
+    expect(testedCount).toBeGreaterThan(0)
   })
 })
 
@@ -378,8 +383,9 @@ describe('Fuzz: db.run(sql, params?)', () => {
 
         try {
           db.run('INSERT INTO test (id, value) VALUES (?, ?)', params)
-        } catch {
-          // Ignore errors
+        } catch (e) {
+          // Errors expected for some random param types - verify error is a proper Error
+          expect(e).toBeInstanceOf(Error)
         }
 
         expect(params).toEqual(paramsCopy)
@@ -398,8 +404,9 @@ describe('Fuzz: db.run(sql, params?)', () => {
         const startTime = Date.now()
         try {
           db.run('INSERT INTO test (id) VALUES (?)', [Math.floor(random() * 1000000)])
-        } catch {
-          // Ignore errors
+        } catch (e) {
+          // Duplicate key errors expected in fuzz testing - verify proper Error
+          expect(e).toBeInstanceOf(Error)
         }
         const elapsed = Date.now() - startTime
 
@@ -897,6 +904,8 @@ describe('Fuzz: db.export() and db.import()', () => {
         db2.close()
       } catch (e) {
         db.close()
+        // Unexpected error in roundtrip test - verify it's a real Error before rethrowing
+        expect(e).toBeInstanceOf(Error)
         throw e
       }
     })

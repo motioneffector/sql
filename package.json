@@ -1,6 +1,6 @@
 {
   "name": "@motioneffector/sql",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "TypeScript wrapper around SQL.js for browser-based SQLite databases with migrations, persistence, and type safety",
   "author": "motioneffector",
   "license": "MIT",

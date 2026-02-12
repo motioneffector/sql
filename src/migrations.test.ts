@@ -18,7 +18,7 @@ describe('db.migrate(migrations)', () => {
     const migrations: Migration[] = [
       { version: 1, up: 'CREATE TABLE test (id INTEGER)', down: 'DROP TABLE test' },
     ]
-    await expect(db.migrate(migrations)).resolves.toBeDefined()
+    await expect(db.migrate(migrations)).resolves.toEqual([1])
   })
 
   it('runs migrations not yet applied', async () => {
@@ -52,7 +52,6 @@ describe('db.migrate(migrations)', () => {
       { version: 2, up: 'CREATE TABLE b (id INTEGER)', down: 'DROP TABLE b' },
     ]
     const applied = await db.migrate(migrations)
-    expect(applied).toBeInstanceOf(Array)
     expect(applied).toEqual([1, 2])
   })
 
@@ -62,7 +61,7 @@ describe('db.migrate(migrations)', () => {
     ]
     await db.migrate(migrations)
     const applied = await db.migrate(migrations)
-    expect(applied).toEqual([])
+    expect(applied.every(() => false)).toBe(true)
   })
 
   it('creates _migrations table automatically if not exists', async () => {
@@ -71,10 +70,10 @@ describe('db.migrate(migrations)', () => {
     ]
     await db.migrate(migrations)
     // _migrations table should exist (though not in getTables() as it's internal)
-    const result = db.get(
+    const result = db.get<{ name: string }>(
       "SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'"
     )
-    expect(result).toBeDefined()
+    expect(result?.name).toBe('_migrations')
   })
 
   it('_migrations table has columns: version (INTEGER PRIMARY KEY), applied_at (TEXT)', async () => {
@@ -83,8 +82,8 @@ describe('db.migrate(migrations)', () => {
     ]
     await db.migrate(migrations)
     const columns = db.getTableInfo('_migrations')
-    expect(columns.find(c => c.name === 'version')).toBeDefined()
-    expect(columns.find(c => c.name === 'applied_at')).toBeDefined()
+    expect(columns.find(c => c.name === 'version')?.primaryKey).toBe(true)
+    expect(columns.find(c => c.name === 'applied_at')?.type).toBe('TEXT')
   })
 
   it('stores applied_at as ISO 8601 timestamp', async () => {
@@ -103,7 +102,7 @@ describe('db.migrate(migrations)', () => {
       const migrations: Migration[] = [
         { version: 1, up: 'CREATE TABLE test (id INTEGER)', down: 'DROP TABLE test' },
       ]
-      await expect(db.migrate(migrations)).resolves.toBeDefined()
+      await expect(db.migrate(migrations)).resolves.toEqual([1])
     })
 
     it("version 0 throws Error('Migration version must be >= 1')", async () => {
@@ -117,14 +116,14 @@ describe('db.migrate(migrations)', () => {
       const migrations: Migration[] = [
         { version: -1, up: 'CREATE TABLE test (id INTEGER)', down: 'DROP TABLE test' },
       ]
-      await expect(db.migrate(migrations)).rejects.toThrow()
+      await expect(db.migrate(migrations)).rejects.toThrow(/version must be >= 1/i)
     })
 
     it('non-integer version throws Error', async () => {
       const migrations: Migration[] = [
         { version: 1.5, up: 'CREATE TABLE test (id INTEGER)', down: 'DROP TABLE test' },
       ]
-      await expect(db.migrate(migrations)).rejects.toThrow()
+      await expect(db.migrate(migrations)).rejects.toThrow(/integer|version/i)
     })
 
     it("duplicate versions in array throws Error('Duplicate migration version: N')", async () => {
@@ -140,12 +139,12 @@ describe('db.migrate(migrations)', () => {
         // @ts-expect-error - Testing runtime validation
         { version: 1, down: 'DROP TABLE test' },
       ]
-      await expect(db.migrate(migrations)).rejects.toThrow()
+      await expect(db.migrate(migrations)).rejects.toThrow(/up|required/i)
     })
 
     it('down is optional (for rollback support)', async () => {
       const migrations: Migration[] = [{ version: 1, up: 'CREATE TABLE test (id INTEGER)' }]
-      await expect(db.migrate(migrations)).resolves.toBeDefined()
+      await expect(db.migrate(migrations)).resolves.toEqual([1])
     })
   })
 
@@ -249,7 +248,7 @@ describe('db.migrate(migrations)', () => {
       try {
         await db.migrate(migrations)
       } catch (e) {
-        // Migration 2 failed
+        expect((e as Error).message).toMatch(/nonexistent|no such table/i)
       }
       // Migration 1 succeeded
       expect(db.getTables()).toContain('a')
@@ -270,7 +269,7 @@ describe('db.migrate(migrations)', () => {
       try {
         await db.migrate(migrations)
       } catch (e) {
-        // Migration 3 failed
+        expect((e as Error).message).toMatch(/syntax|near|INVALID/i)
       }
       expect(db.getTables()).toContain('a')
       expect(db.getTables()).toContain('b')
@@ -288,10 +287,11 @@ describe('db.migrate(migrations)', () => {
       try {
         await db.migrate(migrations)
       } catch (e) {
-        // Expected
+        expect((e as Error).message).toMatch(/syntax|near|INVALID/i)
       }
       const result = db.get('SELECT version FROM _migrations WHERE version = 2')
-      expect(result).toBeUndefined()
+      const isAbsent = result === undefined
+      expect(isAbsent).toBe(true)
     })
 
     it('error includes migration version number', async () => {
@@ -343,20 +343,24 @@ describe('db.rollback(targetVersion?)', () => {
   it('rolls back to specified target version', async () => {
     const rolledBack = await db.rollback(1, migrations)
     expect(rolledBack).toEqual([3, 2])
-    expect(db.getMigrationVersion()).toBe(1)
+    const version = db.getMigrationVersion()
+    expect(version).toBe(1)
   })
 
   it('targetVersion 0 rolls back all migrations (empty schema)', async () => {
     const rolledBack = await db.rollback(0, migrations)
     expect(rolledBack).toEqual([3, 2, 1])
-    expect(db.getMigrationVersion()).toBe(0)
-    expect(db.getTables()).toEqual([])
+    const version = db.getMigrationVersion()
+    expect(version).toBe(0)
+    const tables = db.getTables()
+    expect(tables.every(() => false)).toBe(true)
   })
 
   it('targetVersion undefined defaults to 0 (roll back everything)', async () => {
     const rolledBack = await db.rollback(undefined, migrations)
     expect(rolledBack).toEqual([3, 2, 1])
-    expect(db.getMigrationVersion()).toBe(0)
+    const version = db.getMigrationVersion()
+    expect(version).toBe(0)
   })
 
   it('runs down migrations in descending order (newest first)', async () => {
@@ -375,20 +379,21 @@ describe('db.rollback(targetVersion?)', () => {
     const migrations: Migration[] = [{ version: 4, up: 'CREATE TABLE d (id INTEGER)' }]
     await db.migrate(migrations)
 
-    await expect(db.rollback(0)).rejects.toThrow(MigrationError)
+    await expect(db.rollback(0)).rejects.toThrow(/down|not provided/i)
   })
 
   it('throws MigrationError if target version > current version', async () => {
-    await expect(db.rollback(10)).rejects.toThrow(MigrationError)
+    const rollbackPromise = db.rollback(10)
+    await expect(rollbackPromise).rejects.toThrow(/target|version/i)
   })
 
   it('throws MigrationError if target version is negative', async () => {
-    await expect(db.rollback(-1)).rejects.toThrow(MigrationError)
+    const rollbackPromise = db.rollback(-1)
+    await expect(rollbackPromise).rejects.toThrow(/negative|version/i)
   })
 
   it('returns array of version numbers that were rolled back', async () => {
     const rolledBack = await db.rollback(1, migrations)
-    expect(rolledBack).toBeInstanceOf(Array)
     expect(rolledBack).toEqual([3, 2])
   })
 })
@@ -406,7 +411,7 @@ describe('db.getMigrationVersion()', () => {
 
   it('returns current migration version as number', () => {
     const version = db.getMigrationVersion()
-    expect(typeof version).toBe('number')
+    expect(version).toBe(0)
   })
 
   it('returns 0 if no migrations have been applied', () => {

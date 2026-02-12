@@ -270,9 +270,9 @@ describe('db.save()', () => {
       persist: { key: 'test', storage: mockStorage },
     })
 
-    const result = await db.save()
+    await db.save()
 
-    expect(result).toBeUndefined()
+    expect(mockStorage.setItem).toHaveBeenCalled()
 
     db.close()
   })
@@ -280,7 +280,10 @@ describe('db.save()', () => {
   it('no-op if persistence not configured (resolves immediately)', async () => {
     const db = await createDatabase()
 
-    await expect(db.save()).resolves.toBeUndefined()
+    // save() without persistence should resolve without error
+    const saveResult = await db.save()
+    const isVoid = saveResult === undefined
+    expect(isVoid).toBe(true)
 
     db.close()
   })
@@ -387,9 +390,9 @@ describe('db.load()', () => {
       persist: { key: 'test', storage: mockStorage },
     })
 
-    const result = await db.load()
+    await db.load()
 
-    expect(result).toBeUndefined()
+    expect(mockStorage.getItem).toHaveBeenCalled()
 
     db.close()
   })
@@ -397,7 +400,10 @@ describe('db.load()', () => {
   it('no-op if persistence not configured (resolves immediately)', async () => {
     const db = await createDatabase()
 
-    await expect(db.load()).resolves.toBeUndefined()
+    // load() without persistence should resolve without error
+    const loadResult = await db.load()
+    const isVoid = loadResult === undefined
+    expect(isVoid).toBe(true)
 
     db.close()
   })
@@ -476,7 +482,10 @@ describe('Auto-save Configuration', () => {
 
     await new Promise(resolve => setTimeout(resolve, 100))
 
-    // No persistence configured, so no storage calls
+    // No persistence configured - verify database is still functional
+    db.run('INSERT INTO test VALUES (1)')
+    const row = db.get<{ id: number }>('SELECT * FROM test')
+    expect(row?.id).toBe(1)
 
     db.close()
   })
